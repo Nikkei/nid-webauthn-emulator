@@ -2,7 +2,7 @@
 
 ## 概要
 
-Passkeys Authenticator のエミュレータおよび <https://webauthn.io/> でのデモアプリです。
+Passkeys Authenticator の[エミュレータ](https://github.com/Nikkei/nid-passkeys-authenticator-demo/blob/main/src/passkeys-test-authenticator.ts)および <https://webauthn.io/> でのデモアプリです。
 
 ## 実行方法
 
