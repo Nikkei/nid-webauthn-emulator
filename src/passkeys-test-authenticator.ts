@@ -1,9 +1,9 @@
 import { parse } from "tldts";
 
+import crypto, { type KeyObject, type KeyPairKeyObjectResult } from "node:crypto";
 import cbor from "cbor";
 import EncodeUtils from "./libs/encode-utils";
 import type { AuthenticationPublicKeyCredential, RegistrationPublicKeyCredential } from "./libs/json";
-import { p1363ToDer } from "./third-party-libs/ecdsa-utils";
 
 const FIDO2_ES256_IDENTIFIER = -7;
 
@@ -19,26 +19,26 @@ class PublicKeyCredentialSource {
   private constructor(
     public readonly id: ArrayBuffer,
     public readonly rpId: string,
-    private keyPair: CryptoKeyPair,
+    private keyPair: KeyPairKeyObjectResult,
     public readonly userHandle?: ArrayBuffer,
   ) {}
 
   public static async create(rpId: string, userHandle?: ArrayBuffer): Promise<PublicKeyCredentialSource> {
-    const keyPair = await PublicKeyCredentialSource.generateECDSAKeyPair();
+    const keyPair = PublicKeyCredentialSource.generateECDSAKeyPair();
     const id = PublicKeyCredentialSource.generateSecureRandomKey();
     return new PublicKeyCredentialSource(id, rpId, keyPair, userHandle);
   }
 
-  public get publicKey(): CryptoKey {
+  public get publicKey(): KeyObject {
     return this.keyPair.publicKey;
   }
 
-  public get ___privateKey(): CryptoKey {
+  public get ___privateKey(): KeyObject {
     return this.keyPair.privateKey;
   }
 
-  private static generateECDSAKeyPair(): Promise<CryptoKeyPair> {
-    return crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign"]);
+  private static generateECDSAKeyPair(): KeyPairKeyObjectResult {
+    return crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
   }
 
   private static generateSecureRandomKey(size = 32): Uint8Array {
@@ -160,7 +160,7 @@ export class PasskeysTestAuthenticator {
       crossOrigin: false,
     };
 
-    const pubKeyDer = await crypto.subtle.exportKey("spki", credential.publicKey);
+    const pubKeyDer = credential.publicKey.export({ type: "spki", format: "der" });
     const response: AuthenticatorAttestationResponse = {
       attestationObject: new Uint8Array(cbor.encode(attestationObject)).buffer,
       clientDataJSON: EncodeUtils.toArrayBuffer(JSON.stringify(clientData)),
@@ -192,7 +192,7 @@ export class PasskeysTestAuthenticator {
     userPresence: boolean;
     userVerification: boolean;
     counter: number;
-    publicKey?: CryptoKey;
+    publicKey?: KeyObject;
   }): Promise<Buffer> {
     const authData: Array<number> = [];
 
@@ -245,8 +245,8 @@ export class PasskeysTestAuthenticator {
   }
 
   /** @see https://github.com/bitwarden/clients/blob/main/libs/common/src/platform/services/fido2/fido2-authenticator.service.ts */
-  private static async toCoseBytes(publicKey: CryptoKey): Promise<Uint8Array> {
-    const publicKeyJwk = await crypto.subtle.exportKey("jwk", publicKey);
+  private static async toCoseBytes(publicKey: KeyObject): Promise<Uint8Array> {
+    const publicKeyJwk = publicKey.export({ format: "jwk" });
     if (!publicKeyJwk.x || !publicKeyJwk.y) throw new Error("Public key is not ECDSA key");
     const keyX = EncodeUtils.decodeBase64Url(publicKeyJwk.x);
     const keyY = EncodeUtils.decodeBase64Url(publicKeyJwk.y);
@@ -263,12 +263,10 @@ export class PasskeysTestAuthenticator {
   private static async generateSignature(params: {
     authData: Uint8Array;
     clientDataHash: ArrayBuffer;
-    privateKey: CryptoKey;
+    privateKey: KeyObject;
   }): Promise<ArrayBuffer> {
     const payload = new Uint8Array([...params.authData, ...new Uint8Array(params.clientDataHash)]);
-    const signature = new Uint8Array(
-      await crypto.subtle.sign({ name: "ECDSA", hash: { name: "SHA-256" } }, params.privateKey, payload),
-    );
-    return p1363ToDer(signature);
+    const signature = crypto.createSign("sha256").update(payload).sign(params.privateKey);
+    return signature;
   }
 }
