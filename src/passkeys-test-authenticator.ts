@@ -1,9 +1,9 @@
 import { parse } from "tldts";
 
+import cbor from "cbor";
 import EncodeUtils from "./libs/encode-utils";
 import type { AuthenticationPublicKeyCredential, RegistrationPublicKeyCredential } from "./libs/json";
 import { p1363ToDer } from "./third-party-libs/ecdsa-utils";
-import { CBOR } from "./third-party-libs/cbor";
 
 const FIDO2_ES256_IDENTIFIER = -7;
 
@@ -150,7 +150,7 @@ export class PasskeysTestAuthenticator {
     const attestationObject = {
       fmt: "none",
       attStmt: {},
-      authData,
+      authData: authData,
     };
 
     const clientData = {
@@ -162,7 +162,7 @@ export class PasskeysTestAuthenticator {
 
     const pubKeyDer = await crypto.subtle.exportKey("spki", credential.publicKey);
     const response: AuthenticatorAttestationResponse = {
-      attestationObject: new Uint8Array(CBOR.encode(attestationObject)).buffer,
+      attestationObject: new Uint8Array(cbor.encode(attestationObject)).buffer,
       clientDataJSON: EncodeUtils.toArrayBuffer(JSON.stringify(clientData)),
 
       getAuthenticatorData: () => authData,
@@ -193,7 +193,7 @@ export class PasskeysTestAuthenticator {
     userVerification: boolean;
     counter: number;
     publicKey?: CryptoKey;
-  }) {
+  }): Promise<Buffer> {
     const authData: Array<number> = [];
 
     const rpIdHash = new Uint8Array(
@@ -224,7 +224,7 @@ export class PasskeysTestAuthenticator {
       authData.push(...[...AAGUID, ...credentialIdLength, ...rawId, ...coseBytes]);
     }
 
-    return new Uint8Array(authData);
+    return Buffer.from(authData);
   }
 
   /** @see https://www.w3.org/TR/webauthn-3/#sctn-validating-origin */

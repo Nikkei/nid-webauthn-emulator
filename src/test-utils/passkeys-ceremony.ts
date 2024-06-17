@@ -1,8 +1,8 @@
 import {
   parseCreationOptionsFromJSON,
-  toRegistrationResponseJson,
   parseRequestOptionsFromJSON,
   toAuthenticationResponseJson,
+  toRegistrationResponseJson,
 } from "../libs/json";
 import type { PasskeysTestAuthenticator } from "../passkeys-test-authenticator";
 import type { PasskeysApiClient } from "./passkeys-api-client";

@@ -1,7 +1,7 @@
 import { describe, test } from "@jest/globals";
 import { PasskeysTestAuthenticator } from "./passkeys-test-authenticator";
-import { WebAuthnIO } from "./webauthn-io";
 import { authenticationCeremony, registrationCeremony } from "./test-utils/passkeys-ceremony";
+import { WebAuthnIO } from "./webauthn-io";
 
 describe("webauthn.io を利用した Passkeys の登録とログイン", () => {
   test("Registration Ceremony and Authentication Ceremony", async () => {

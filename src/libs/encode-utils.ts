@@ -7,7 +7,7 @@ function fromByteStringToArray(str: string): Uint8Array {
 }
 
 function toArrayBuffer(data: string): Uint8Array {
-    return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
+  return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
 }
 
 function encodeBase64Url(buffer: ArrayBuffer): string {
