@@ -9,7 +9,7 @@
     "compile": "tsc --outDir dist"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.8.0",
+    "@biomejs/biome": "^1.8.1",
     "@jest/globals": "^29.7.0",
     "@tsconfig/recommended": "^1.0.6",
     "@types/node": "^20.14.2",
