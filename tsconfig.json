@@ -1,0 +1,8 @@
+{
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "resolveJsonModule": true
+  },
+  "include": ["src", "spec"],
+  "exclude": ["dist", "node_modules"]
+}
