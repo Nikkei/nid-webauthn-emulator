@@ -20,5 +20,8 @@ jobs:
       - name: Biome check
         run: pnpm biome check
 
+      - name: TypeScript Compile
+        run: pnpm compile
+
       - name: Run tests
         run: pnpm test

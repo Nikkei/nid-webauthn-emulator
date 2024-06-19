@@ -5,7 +5,8 @@
   "license": "MIT",
   "scripts": {
     "check": "biome check .",
-    "test": "jest"
+    "test": "jest",
+    "compile": "tsc --outDir dist"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.0",
