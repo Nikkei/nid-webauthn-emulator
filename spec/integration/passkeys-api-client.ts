@@ -3,7 +3,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
-} from "../libs/json";
+} from "../../src/webauthn/webauthn-model-json";
 
 export interface PasskeysApiClient {
   getRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON>;

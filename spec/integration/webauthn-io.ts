@@ -3,9 +3,12 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
-} from "./libs/json";
-import type { PasskeysApiClient } from "./test-utils/passkeys-api-client";
+} from "../../src/webauthn/webauthn-model-json";
+import type { PasskeysApiClient } from "./passkeys-api-client";
 
+/**
+ * Passkeys Api Client implementation for webauthn.io
+ */
 export class WebAuthnIO implements PasskeysApiClient {
   private constructor(private sessionId: string) {}
 
@@ -14,6 +17,10 @@ export class WebAuthnIO implements PasskeysApiClient {
     return new WebAuthnIO(sessionId);
   }
 
+  /**
+   * Get a passkey registration options by https://webauthn.io/registration/options
+   * @returns PublicKeyCredentialCreationOptionsJSON
+   */
   public async getRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const optionsRequest = {
       username: "test-user",
@@ -34,6 +41,10 @@ export class WebAuthnIO implements PasskeysApiClient {
     return optionsJson;
   }
 
+  /**
+   * Register your passkey account by https://webauthn.io/registration/verification
+   * @param response RegistrationResponseJSON
+   */
   public async getRegistrationVerification(response: RegistrationResponseJSON): Promise<void> {
     const verificationRequest = {
       response: response,
@@ -51,6 +62,10 @@ export class WebAuthnIO implements PasskeysApiClient {
     }
   }
 
+  /**
+   * Get a passkey authentication options by https://webauthn.io/authentication/options
+   * @returns PublicKeyCredentialRequestOptionsJSON
+   */
   public async getAuthenticationOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
     const optionsRequest = {
       user_verification: "preferred",
@@ -64,6 +79,10 @@ export class WebAuthnIO implements PasskeysApiClient {
     return optionsJson;
   }
 
+  /**
+   * Authenticate your passkey account by https://webauthn.io/authentication/verification
+   * @param response AuthenticationResponseJSON
+   */
   public async getAuthenticationVerification(response: AuthenticationResponseJSON): Promise<void> {
     const verificationRequest = {
       response: response,

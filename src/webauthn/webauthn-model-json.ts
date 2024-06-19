@@ -1,6 +1,4 @@
-import Base64 from "./base64";
-import type { Base64urlString } from "./base64";
-
+type Base64urlString = string;
 type AuthenticationExtensionsClientInputsJSON = object;
 type AuthenticationExtensionsClientOutputsJSON = object;
 
@@ -38,12 +36,12 @@ export function parseCreationOptionsFromJSON(
 ): PublicKeyCredentialCreationOptions {
   return {
     rp: options.rp,
-    user: { ...options.user, id: Base64.base64urlToBuffer(options.user.id) },
-    challenge: Base64.base64urlToBuffer(options.challenge),
+    user: { ...options.user, id: decodeBase64Url(options.user.id) },
+    challenge: decodeBase64Url(options.challenge),
     pubKeyCredParams: options.pubKeyCredParams,
     timeout: options.timeout,
     excludeCredentials: options.excludeCredentials?.map((cred) => ({
-      id: Base64.base64urlToBuffer(cred.id),
+      id: decodeBase64Url(cred.id),
       type: cred.type as PublicKeyCredentialType,
       transports: cred.transports as AuthenticatorTransport[],
     })),
@@ -72,11 +70,11 @@ export function parseRequestOptionsFromJSON(
   options: PublicKeyCredentialRequestOptionsJSON,
 ): PublicKeyCredentialRequestOptions {
   return {
-    challenge: Base64.base64urlToBuffer(options.challenge),
+    challenge: decodeBase64Url(options.challenge),
     timeout: options.timeout,
     rpId: options.rpId,
     allowCredentials: options.allowCredentials?.map((cred) => ({
-      id: Base64.base64urlToBuffer(cred.id),
+      id: decodeBase64Url(cred.id),
       transports: cred.transports as AuthenticatorTransport[],
       type: cred.type as PublicKeyCredentialType,
     })),
@@ -90,6 +88,7 @@ export function parseRequestOptionsFromJSON(
 
 export interface RegistrationPublicKeyCredential extends PublicKeyCredential {
   response: AuthenticatorAttestationResponse;
+  toJSON(): RegistrationResponseJSON;
 }
 
 export interface RegistrationResponseJSON {
@@ -115,6 +114,7 @@ interface AuthenticatorAttestationResponseJSON {
 
 export interface AuthenticationPublicKeyCredential extends PublicKeyCredential {
   response: AuthenticatorAssertionResponse;
+  toJSON(): AuthenticationResponseJSON;
 }
 
 export interface AuthenticationResponseJSON {
@@ -139,12 +139,12 @@ export function toRegistrationResponseJson(credential: PublicKeyCredential): Reg
   const attestationResponse = credential.response as AuthenticatorAttestationResponse;
   const publicKey = attestationResponse.getPublicKey();
   const responseJSON = {
-    clientDataJSON: Base64.bufferToBase64url(attestationResponse.clientDataJSON),
-    authenticatorData: Base64.bufferToBase64url(attestationResponse.getAuthenticatorData()),
+    clientDataJSON: encodeBase64Url(attestationResponse.clientDataJSON),
+    authenticatorData: encodeBase64Url(attestationResponse.getAuthenticatorData()),
     transports: attestationResponse.getTransports(),
-    publicKey: publicKey ? Base64.bufferToBase64url(publicKey) : undefined,
+    publicKey: publicKey ? encodeBase64Url(publicKey) : undefined,
     publicKeyAlgorithm: attestationResponse.getPublicKeyAlgorithm(),
-    attestationObject: Base64.bufferToBase64url(attestationResponse.attestationObject),
+    attestationObject: encodeBase64Url(attestationResponse.attestationObject),
   };
 
   return {
@@ -162,10 +162,10 @@ export function toRegistrationResponseJson(credential: PublicKeyCredential): Reg
 export function toAuthenticationResponseJson(credential: PublicKeyCredential): AuthenticationResponseJSON {
   const assertionResponse = credential.response as AuthenticatorAssertionResponse;
   const responseJson = {
-    clientDataJSON: Base64.bufferToBase64url(assertionResponse.clientDataJSON),
-    authenticatorData: Base64.bufferToBase64url(assertionResponse.authenticatorData),
-    signature: Base64.bufferToBase64url(assertionResponse.signature),
-    userHandle: assertionResponse.userHandle ? Base64.bufferToBase64url(assertionResponse.userHandle) : undefined,
+    clientDataJSON: encodeBase64Url(assertionResponse.clientDataJSON),
+    authenticatorData: encodeBase64Url(assertionResponse.authenticatorData),
+    signature: encodeBase64Url(assertionResponse.signature),
+    userHandle: assertionResponse.userHandle ? encodeBase64Url(assertionResponse.userHandle) : undefined,
   };
   return {
     id: credential.id,
@@ -176,4 +176,26 @@ export function toAuthenticationResponseJson(credential: PublicKeyCredential): A
     clientExtensionResults: credential.getClientExtensionResults() as AuthenticationExtensionsClientOutputsJSON,
     type: credential.type as PublicKeyCredentialType,
   };
+}
+
+function encodeBase64Url(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+function decodeBase64Url(base64Url: string): ArrayBuffer {
+  const base64 = base64Url
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(base64Url.length + ((4 - (base64Url.length % 4)) % 4), "=");
+
+  const binaryString = atob(base64);
+
+  const byteArray = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    byteArray[i] = binaryString.charCodeAt(i);
+  }
+  return byteArray.buffer;
 }
