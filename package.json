@@ -1,13 +1,23 @@
 {
-  "name": "nid-webauthn-emulator",
+  "name": "@nikkei/nid-webauthn-emulator",
   "version": "0.0.0",
+  "keywords": ["test", "e2e", "passkeys"],
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": "https://github.com/Nikkei/nid-webauthn-emulator.git",
+  "files": ["dist"],
   "type": "module",
+  "author": "Nikkei Inc.",
   "license": "MIT",
   "scripts": {
     "check": "biome check .",
     "test": "jest",
-    "compile": "tsc --outDir dist"
+    "build": "tsc"
   },
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "devDependencies": {
     "@biomejs/biome": "^1.8.0",
     "@jest/globals": "^29.7.0",
