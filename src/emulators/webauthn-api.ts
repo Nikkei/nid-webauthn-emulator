@@ -26,6 +26,7 @@ export class WebAuthnApiEmulator {
   public async get(origin: string, options: CredentialRequestOptions): Promise<AuthenticationPublicKeyCredential> {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
     const rpId = new RpId(options.publicKey.rpId || "");
+    if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
     const credential = this.authenticator.getCredential(rpId);
 
     const authenticatorData: AuthenticatorData = {
@@ -72,7 +73,7 @@ export class WebAuthnApiEmulator {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rp.id || "");
-    if (rpId.validate(origin)) throw new Error("Invalid rpId");
+    if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const credential = this.authenticator.generateCredential(rpId, options.publicKey.pubKeyCredParams);
 
