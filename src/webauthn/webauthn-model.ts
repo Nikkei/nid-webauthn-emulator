@@ -17,8 +17,8 @@ export class RpId {
 
     return Boolean(
       parsedOrigin.domain &&
-        parsedOrigin.subdomain &&
-        parsedRpId.subdomain &&
+        parsedOrigin.subdomain !== null &&
+        parsedRpId.subdomain !== null &&
         parsedOrigin.domain === parsedRpId.domain &&
         parsedOrigin.subdomain.endsWith(parsedRpId.subdomain),
     );
