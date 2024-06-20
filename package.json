@@ -4,7 +4,6 @@
   "keywords": ["test", "e2e", "passkeys"],
   "repository": "https://github.com/Nikkei/nid-webauthn-emulator.git",
   "files": ["dist"],
-  "type": "module",
   "author": "Nikkei Inc.",
   "license": "MIT",
   "scripts": {
