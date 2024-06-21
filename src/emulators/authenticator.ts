@@ -32,6 +32,8 @@ export class AuthenticatorEmulator {
   ]);
   private static readonly DEFAULT_TRANSPORTS: AuthenticatorTransport[] = ["usb"] as const;
   private static readonly DEFAULT_ALGORITHM_IDENTIFIERS = ["ES256", "RS256", "EdDSA"] as const;
+  private static readonly DEFAULT_SIGN_COUNTER_INCREMENT = 1;
+  private static readonly DEFAULT_VERIFICATIONS = { userPresent: true, userVerified: true };
 
   public credentials: PasskeyCredential[] = [];
 
@@ -39,6 +41,8 @@ export class AuthenticatorEmulator {
     private aaguid = AuthenticatorEmulator.DEFAULT_AAGUID,
     private transports = AuthenticatorEmulator.DEFAULT_TRANSPORTS,
     private algorithmIdentifiers = AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
+    private signCounterIncrement = AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
+    private verifications = AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
   ) {}
 
   /**
@@ -108,13 +112,18 @@ export class AuthenticatorEmulator {
 
     const clientDataHash = createHash("sha256").update(JSON.stringify(clientData)).digest();
     const payload = new Array<number>();
+
     const authenticatorData = {
-      ...credential.authenticatorData,
+      rpIdHash: credential.authenticatorData.rpIdHash,
       flags: {
-        ...credential.authenticatorData.flags,
+        userPresent: this.verifications.userPresent,
+        userVerified: this.verifications.userVerified,
+        backupEligibility: credential.authenticatorData.flags.backupEligibility,
+        backupState: true,
         attestedCredentialData: false,
+        extensionData: false,
       },
-      attestedCredentialData: undefined,
+      signCount: credential.authenticatorData.signCount + this.signCounterIncrement,
     };
     payload.push(...packAuthenticatorData(authenticatorData));
     payload.push(...clientDataHash);
@@ -171,6 +180,7 @@ function generateCredential(
       userPresent: true,
       userVerified: true,
       attestedCredentialData: true,
+      extensionData: false,
     },
     signCount: 0,
     attestedCredentialData: {

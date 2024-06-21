@@ -26,7 +26,7 @@ import {
  * WebAuthn API emulator
  */
 export class WebAuthnApiEmulator {
-  public authenticator = new AuthenticatorEmulator();
+  constructor(public authenticator: AuthenticatorEmulator = new AuthenticatorEmulator()) {}
 
   public getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
     const options = parseRequestOptionsFromJSON(optionsJSON);
