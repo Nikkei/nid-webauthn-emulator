@@ -57,7 +57,9 @@ describe("WebAuthn JSON Model Test", () => {
   });
 
   test("Get Response JSON Serialize Deserialize test", async () => {
-    const response = emulator.get("https://webauthn.io", { publicKey: requestOption });
+    const response = emulator.get("https://webauthn.io", {
+      publicKey: { ...requestOption, allowCredentials: undefined },
+    });
     const json = toAuthenticationResponseJSON(response);
     const model = parseAuthenticationResponseFromJSON(json);
     const reJson = toAuthenticationResponseJSON(model);
