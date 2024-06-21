@@ -61,7 +61,7 @@ export class WebAuthnApiEmulator {
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
-      challenge: EncodeUtils.encodeBase64Url(new Uint8Array(options.publicKey.challenge as ArrayBuffer)),
+      challenge: EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(options.publicKey.challenge)),
       origin,
       crossOrigin: false,
     };
@@ -73,7 +73,7 @@ export class WebAuthnApiEmulator {
       type: "public-key",
       rawId: credential.attestedCredentialData.credentialId,
       response: {
-        clientDataJSON: EncodeUtils.toUint8Array(JSON.stringify(clientData)),
+        clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
         authenticatorData: packAuthenticatorData(authenticatorData),
         signature,
         userHandle: credential.publicKeyCredentialSource.userHandle || null,
@@ -93,7 +93,11 @@ export class WebAuthnApiEmulator {
     const rpId = new RpId(options.publicKey.rp.id || "");
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
-    const credential = this.authenticator.generateCredential(rpId, options.publicKey.pubKeyCredParams);
+    const credential = this.authenticator.generateCredential(
+      rpId,
+      options.publicKey.pubKeyCredParams,
+      EncodeUtils.bufferSourceToUint8Array(options.publicKey.user.id),
+    );
 
     const authData: AuthenticatorData = {
       rpIdHash: rpId.hash,
@@ -114,7 +118,7 @@ export class WebAuthnApiEmulator {
     };
 
     const clientData: CollectedClientData = {
-      challenge: EncodeUtils.encodeBase64Url(new Uint8Array(options.publicKey.challenge as ArrayBuffer)),
+      challenge: EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(options.publicKey.challenge)),
       origin,
       type: "webauthn.create",
       crossOrigin: false,
@@ -122,7 +126,7 @@ export class WebAuthnApiEmulator {
 
     const response: AuthenticatorAttestationResponse = {
       attestationObject: packAttestationObject(attestationObject),
-      clientDataJSON: EncodeUtils.toUint8Array(JSON.stringify(clientData)),
+      clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
 
       getAuthenticatorData: () => packAuthenticatorData(authData),
       getPublicKey: () => credential.attestedCredentialData.credentialPublicKey.toDer(),
