@@ -9,7 +9,7 @@ import {
 
 export const WebAuthnEmulatorGet = "webAuthnEmulatorGet";
 export const WebAuthnEmulatorCreate = "webAuthnEmulator";
-export const InjectWebAuthnEmulatorCode = `
+export const HookWebAuthnApis = `
 (function () {
   ${encodeBase64Url.toString()}
   ${decodeBase64Url.toString()}

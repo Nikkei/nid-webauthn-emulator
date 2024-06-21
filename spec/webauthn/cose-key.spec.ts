@@ -8,8 +8,8 @@ describe.each([-7, -8, -257])("CoseKey Test: %s", (alg) => {
     const authenticator = new AuthenticatorEmulator();
     const rpId = new RpId("example.com");
     const userHandle = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
-    const credential = authenticator.generateCredential(rpId, [{ alg, type: "public-key" }], userHandle);
-    return credential.attestedCredentialData.credentialPublicKey;
+    const credential = authenticator.generateCredential(rpId, [{ alg, type: "public-key" }], [], userHandle);
+    return credential.authenticatorData.attestedCredentialData?.credentialPublicKey as CoseKey;
   };
 
   test("Der format _ serialize and deserialize test", async () => {

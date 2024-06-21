@@ -1,10 +1,10 @@
 import EncodeUtils from "../libs/encode-utils";
-import type { AttestedCredentialData, PublicKeyCredentialSource } from "../webauthn/webauthn-model";
+import type { AuthenticatorData, PublicKeyCredentialSource } from "../webauthn/webauthn-model";
 
 export type PasskeyCredential = {
-  publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
-  publicKeyCredentialSource: PublicKeyCredentialSource;
-  attestedCredentialData: AttestedCredentialData;
+  readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
+  readonly publicKeyCredentialSource: PublicKeyCredentialSource;
+  readonly authenticatorData: AuthenticatorData;
 };
 
 /**
