@@ -1,7 +1,6 @@
 import { createHash, createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
 import { CoseKey } from "../webauthn/cose-key";
 import {
-  type AttestedCredentialData,
   type AuthenticatorData,
   type CollectedClientData,
   type PublicKeyCredentialSource,
@@ -14,6 +13,13 @@ export const COSEAlgorithmIdentifier = {
   ES256: -7,
   RS256: -257,
   EdDSA: -8,
+};
+
+export type SignResponse = {
+  readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
+  readonly authenticatorData: AuthenticatorData;
+  readonly signature: Uint8Array;
+  readonly userHandle?: Uint8Array;
 };
 
 /**
@@ -72,22 +78,36 @@ export class AuthenticatorEmulator {
   /**
    * Get a signature for the passkey authentication
    * @param rpId RP ID
-   * @param authenticatorData Authenticator data
    * @param clientData Client data
    * @returns Signature
    */
-  public sign(rpId: RpId, authenticatorData: AuthenticatorData, clientData: CollectedClientData): Uint8Array {
-    const publicKeyCredentialSource = this.getCredential(rpId).publicKeyCredentialSource;
+  public sign(rpId: RpId, clientData: CollectedClientData): SignResponse {
+    const credential = this.getCredential(rpId);
     const clientDataHash = createHash("sha256").update(JSON.stringify(clientData)).digest();
     const payload = new Array<number>();
+    const authenticatorData = {
+      ...credential.authenticatorData,
+      flags: {
+        ...credential.authenticatorData.flags,
+        attestedCredentialData: false,
+      },
+      attestedCredentialData: undefined,
+    };
     payload.push(...packAuthenticatorData(authenticatorData));
     payload.push(...clientDataHash);
     const privateKey = createPrivateKey({
       format: "der",
       type: "pkcs8",
-      key: publicKeyCredentialSource.privateKey as Buffer,
+      key: credential.publicKeyCredentialSource.privateKey as Buffer,
     });
-    return createSign("sha256").update(new Uint8Array(payload)).sign(privateKey);
+    credential.authenticatorData.signCount++;
+    const signature = createSign("sha256").update(new Uint8Array(payload)).sign(privateKey);
+    return {
+      publicKeyCredentialDescriptor: credential.publicKeyCredentialDescriptor,
+      authenticatorData,
+      signature,
+      userHandle: credential.publicKeyCredentialSource.userHandle,
+    };
   }
 }
 
@@ -114,21 +134,32 @@ function generateCredential(
     userHandle,
   };
 
-  const attestedCredentialData: AttestedCredentialData = {
-    aaguid,
-    credentialId,
-    credentialPublicKey: CoseKey.fromKeyObject(keyPair.publicKey),
-  };
-
   const publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor = {
     type: "public-key",
     id: credentialId,
     transports,
   };
 
+  const authenticatorData: AuthenticatorData = {
+    rpIdHash: rpId.hash,
+    flags: {
+      backupEligibility: true,
+      backupState: false,
+      userPresent: true,
+      userVerified: true,
+      attestedCredentialData: true,
+    },
+    signCount: 0,
+    attestedCredentialData: {
+      aaguid,
+      credentialId,
+      credentialPublicKey: CoseKey.fromKeyObject(keyPair.publicKey),
+    },
+  };
+
   return {
     publicKeyCredentialDescriptor,
     publicKeyCredentialSource,
-    attestedCredentialData,
+    authenticatorData,
   };
 }
