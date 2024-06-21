@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { InjectWebAuthnEmulatorCode } from "../../src/libs/browser-injection";
+import { HookWebAuthnApis } from "../../src/libs/browser-injection";
 
 describe("Browser Injection Test", () => {
   test("Browser Injection Test", async () => {
@@ -7,7 +7,7 @@ describe("Browser Injection Test", () => {
     const PublicKeyCredential = { isConditionalMediationAvailable: async () => false };
 
     // biome-ignore lint/security/noGlobalEval: This is a test code.
-    eval(InjectWebAuthnEmulatorCode);
+    eval(HookWebAuthnApis);
 
     expect(await PublicKeyCredential.isConditionalMediationAvailable()).toBeTruthy();
     expect(window.navigator.credentials.create).toBeDefined();
