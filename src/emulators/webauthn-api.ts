@@ -55,8 +55,7 @@ export class WebAuthnApiEmulator {
         userPresent: true,
         userVerified: true,
       },
-      signCount: 0,
-      attestedCredentialData: credential.attestedCredentialData,
+      signCount: 0
     };
 
     const clientData: CollectedClientData = {

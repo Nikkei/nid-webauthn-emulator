@@ -60,33 +60,41 @@ console.log("Authentication verification completed");
 Playwright の `exposeFunction` を利用して、WebAuthn API エミュレータを利用することができます。使い方は下記の通りです。
 
 ```TypeScript
-async function setEmulator(page: Page, origin: string, debug = false) {
+import WebAuthnApiEmulator, { BrowserInjection } from "@nikkei/nid-webauthn-emulator";
+
+async function startWebAuthnEmulator(page: Page, origin: string, debug = false) {
   const emulator = new WebAuthnApiEmulator();
 
-  await page.exposeFunction(WebAuthnEmulatorCreate, async (optionsJSON: PublicKeyCredentialCreationOptionsJSON) => {
-    if (debug) console.log("WebAuthn Emulator Create: Options", optionsJSON);
-    const response = emulator.createJSON(origin, optionsJSON);
-    if (debug) console.log("WebAuthn Emulator Create: Response", response);
-    return response;
-  });
+  await page.exposeFunction(
+    BrowserInjection.WebAuthnEmulatorCreate,
+    async (optionsJSON: PublicKeyCredentialCreationOptionsJSON) => {
+      if (debug) console.log("WebAuthn Emulator Create: Options", optionsJSON);
+      const response = emulator.createJSON(origin, optionsJSON);
+      if (debug) console.log("WebAuthn Emulator Create: Response", response);
+      return response;
+    },
+  );
 
-  await page.exposeFunction(WebAuthnEmulatorGet, async (optionsJSON: PublicKeyCredentialRequestOptionsJSON) => {
-    if (debug) console.log("WebAuthn Emulator Get: Options", optionsJSON);
-    const response = emulator.getJSON(origin, optionsJSON);
-    if (debug) console.log("WebAuthn Emulator Get: Response", response);
-    return response;
-  });
+  await page.exposeFunction(
+    BrowserInjection.WebAuthnEmulatorGet,
+    async (optionsJSON: PublicKeyCredentialRequestOptionsJSON) => {
+      if (debug) console.log("WebAuthn Emulator Get: Options", optionsJSON);
+      const response = emulator.getJSON(origin, optionsJSON);
+      if (debug) console.log("WebAuthn Emulator Get: Response", response);
+      return response;
+    },
+  );
 }
 
 test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
   test("Passkeys login test", async ({ page }) => {
     // Page内で最初に1回だけ定義する exposed functions
-    await setEmulator(page, env, true);
+    await startWebAuthnEmulator(page, env, true);
     await page.goto("https://example.com/passkeys/login");
 
     // Passkeys の WebAuthn API をフック開始
     // ページ遷移後に実行する必要がある
-    await page.evaluate(StartWebAuthnEmulator);
+    await page.evaluate(BrowserInjection.HookWebAuthnApis);
   });
 });
 ```
