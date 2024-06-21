@@ -43,9 +43,8 @@ export class WebAuthnApiEmulator {
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */
   public get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
-    const rpId = new RpId(options.publicKey.rpId || "");
+    const rpId = new RpId(options.publicKey.rpId ?? "");
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
-    //const credential = this.authenticator.getCredential(rpId);
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
@@ -53,7 +52,7 @@ export class WebAuthnApiEmulator {
       origin,
       crossOrigin: false,
     };
-    const signResponse = this.authenticator.sign(rpId, clientData);
+    const signResponse = this.authenticator.sign(rpId, clientData, options.publicKey.allowCredentials ?? []);
 
     const authData = signResponse.authenticatorData;
     const id = EncodeUtils.bufferSourceToUint8Array(signResponse.publicKeyCredentialDescriptor.id);
@@ -66,7 +65,7 @@ export class WebAuthnApiEmulator {
         clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
         authenticatorData: packAuthenticatorData(authData),
         signature: signResponse.signature,
-        userHandle: signResponse.userHandle || null,
+        userHandle: signResponse.userHandle ?? null,
       },
       authenticatorAttachment: null,
       getClientExtensionResults: () => ({ credProps: { rk: true } }),
@@ -80,12 +79,13 @@ export class WebAuthnApiEmulator {
   public create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
 
-    const rpId = new RpId(options.publicKey.rp.id || "");
+    const rpId = new RpId(options.publicKey.rp.id ?? "");
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const credential = this.authenticator.generateCredential(
       rpId,
       options.publicKey.pubKeyCredParams,
+      options.publicKey.excludeCredentials ?? [],
       EncodeUtils.bufferSourceToUint8Array(options.publicKey.user.id),
     );
 
@@ -112,7 +112,7 @@ export class WebAuthnApiEmulator {
       getAuthenticatorData: () => packAuthenticatorData(authData),
       getPublicKey: () => attestedCredentialData.credentialPublicKey.toDer(),
       getPublicKeyAlgorithm: () => attestedCredentialData.credentialPublicKey.alg,
-      getTransports: () => credential.publicKeyCredentialDescriptor.transports || [],
+      getTransports: () => credential.publicKeyCredentialDescriptor.transports ?? [],
     };
 
     const publicKeyCredential: CreatePublicKeyCredential = {

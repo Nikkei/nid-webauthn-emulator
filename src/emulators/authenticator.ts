@@ -1,4 +1,5 @@
 import { createHash, createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
+import EncodeUtils from "../libs/encode-utils";
 import { CoseKey } from "../webauthn/cose-key";
 import {
   type AuthenticatorData,
@@ -50,8 +51,14 @@ export class AuthenticatorEmulator {
   public generateCredential(
     rpId: RpId,
     keyParams: PublicKeyCredentialParameters[],
+    excludeCredentials: PublicKeyCredentialDescriptor[],
     userHandle: Uint8Array | undefined,
   ): PasskeyCredential {
+    if (excludeCredentials.length > 0) {
+      const existingCredentials = this.getCredential(rpId, excludeCredentials);
+      if (existingCredentials) throw new Error("Credential already exists");
+    }
+
     const allowAlgSet = new Set(keyParams.map((param) => param.alg));
     const alg = this.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
     if (!alg) throw new Error("Invalid algorithm");
@@ -63,26 +70,42 @@ export class AuthenticatorEmulator {
   /**
    * Get a passkey's credential
    * @param rpId RP ID
+   * @param credentialsFilter Allow credentials
    * @returns PasskeyCredential
    */
-  public getCredential(rpId: RpId): PasskeyCredential {
-    const credential = this.credentials.find((credential) => {
+  public getCredential(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential | undefined {
+    const allowIds = new Set(
+      credentialsFilter.map((descriptor) =>
+        EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(descriptor.id)),
+      ),
+    );
+
+    return this.credentials.find((credential) => {
       if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
+      if (credentialsFilter.length > 0) {
+        const rawId = credential.publicKeyCredentialDescriptor.id;
+        const id = EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(rawId));
+        if (!allowIds?.has(id)) return false;
+      }
       return true;
     });
-
-    if (!credential) throw new Error("No credential found");
-    return credential;
   }
 
   /**
    * Get a signature for the passkey authentication
    * @param rpId RP ID
    * @param clientData Client data
+   * @param allowCredentials Allowed credentials
    * @returns Signature
    */
-  public sign(rpId: RpId, clientData: CollectedClientData): SignResponse {
-    const credential = this.getCredential(rpId);
+  public sign(
+    rpId: RpId,
+    clientData: CollectedClientData,
+    allowCredentials: PublicKeyCredentialDescriptor[],
+  ): SignResponse {
+    const credential = this.getCredential(rpId, allowCredentials);
+    if (!credential) throw new Error("No credentials found");
+
     const clientDataHash = createHash("sha256").update(JSON.stringify(clientData)).digest();
     const payload = new Array<number>();
     const authenticatorData = {
