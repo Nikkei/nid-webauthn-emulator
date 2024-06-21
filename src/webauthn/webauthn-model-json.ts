@@ -5,6 +5,7 @@ type AuthenticationExtensionsClientOutputsJSON = object;
 // options for navigator.credentials.create() serialization
 // @see https://www.w3.org/TR/webauthn-3/#sctn-parseCreationOptionsFromJSON
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptionsjson */
 export interface PublicKeyCredentialCreationOptionsJSON {
   readonly rp: PublicKeyCredentialRpEntity;
   readonly user: PublicKeyCredentialUserEntityJSON;
@@ -19,41 +20,45 @@ export interface PublicKeyCredentialCreationOptionsJSON {
   readonly extensions?: AuthenticationExtensionsClientInputsJSON;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentityjson */
 interface PublicKeyCredentialUserEntityJSON {
   readonly id: Base64urlString;
   readonly name: string;
   readonly displayName: string;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialdescriptorjson */
 interface PublicKeyCredentialDescriptorJSON {
   readonly id: Base64urlString;
   readonly type: string;
   transports?: string[];
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#sctn-parseCreationOptionsFromJSON */
 export function parseCreationOptionsFromJSON(
-  options: PublicKeyCredentialCreationOptionsJSON,
+  optionsJSON: PublicKeyCredentialCreationOptionsJSON,
 ): PublicKeyCredentialCreationOptions {
   return {
-    rp: options.rp,
-    user: { ...options.user, id: decodeBase64Url(options.user.id) },
-    challenge: decodeBase64Url(options.challenge),
-    pubKeyCredParams: options.pubKeyCredParams,
-    timeout: options.timeout,
-    excludeCredentials: options.excludeCredentials?.map((cred) => ({
+    rp: optionsJSON.rp,
+    user: { ...optionsJSON.user, id: decodeBase64Url(optionsJSON.user.id) },
+    challenge: decodeBase64Url(optionsJSON.challenge),
+    pubKeyCredParams: optionsJSON.pubKeyCredParams,
+    timeout: optionsJSON.timeout,
+    excludeCredentials: optionsJSON.excludeCredentials?.map((cred) => ({
       id: decodeBase64Url(cred.id),
       type: cred.type as PublicKeyCredentialType,
       transports: cred.transports as AuthenticatorTransport[],
     })),
-    authenticatorSelection: options.authenticatorSelection,
-    attestation: options.attestation as AttestationConveyancePreference,
-    extensions: options.extensions,
+    authenticatorSelection: optionsJSON.authenticatorSelection,
+    attestation: optionsJSON.attestation as AttestationConveyancePreference,
+    extensions: optionsJSON.extensions,
   };
 }
 
 // options for navigator.credentials.get() serialization
 // @see https://www.w3.org/TR/webauthn-3/#sctn-parseRequestOptionsFromJSON
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptionsjson */
 export interface PublicKeyCredentialRequestOptionsJSON {
   readonly challenge: Base64urlString;
   readonly timeout?: number;
@@ -66,31 +71,33 @@ export interface PublicKeyCredentialRequestOptionsJSON {
   readonly extensions?: AuthenticationExtensionsClientInputsJSON;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#sctn-parseRequestOptionsFromJSON */
 export function parseRequestOptionsFromJSON(
-  options: PublicKeyCredentialRequestOptionsJSON,
+  optionsJSON: PublicKeyCredentialRequestOptionsJSON,
 ): PublicKeyCredentialRequestOptions {
   return {
-    challenge: decodeBase64Url(options.challenge),
-    timeout: options.timeout,
-    rpId: options.rpId,
-    allowCredentials: options.allowCredentials?.map((cred) => ({
+    challenge: decodeBase64Url(optionsJSON.challenge),
+    timeout: optionsJSON.timeout,
+    rpId: optionsJSON.rpId,
+    allowCredentials: optionsJSON.allowCredentials?.map((cred) => ({
       id: decodeBase64Url(cred.id),
       transports: cred.transports as AuthenticatorTransport[],
       type: cred.type as PublicKeyCredentialType,
     })),
-    userVerification: options.userVerification as UserVerificationRequirement,
-    extensions: options.extensions,
+    userVerification: optionsJSON.userVerification as UserVerificationRequirement,
+    extensions: optionsJSON.extensions,
   };
 }
 
 // response for navigator.credentials.create() serialization
 // @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson
 
-export interface RegistrationPublicKeyCredential extends PublicKeyCredential {
+export interface CreatePublicKeyCredential extends PublicKeyCredential {
   response: AuthenticatorAttestationResponse;
   toJSON(): RegistrationResponseJSON;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-registrationresponsejson */
 export interface RegistrationResponseJSON {
   readonly id: Base64urlString;
   readonly rawId: Base64urlString;
@@ -100,6 +107,7 @@ export interface RegistrationResponseJSON {
   readonly type: string;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorattestationresponsejson */
 interface AuthenticatorAttestationResponseJSON {
   readonly clientDataJSON: Base64urlString;
   readonly authenticatorData: Base64urlString;
@@ -112,11 +120,12 @@ interface AuthenticatorAttestationResponseJSON {
 // response for navigator.credentials.get() serialization
 // @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson
 
-export interface AuthenticationPublicKeyCredential extends PublicKeyCredential {
+export interface RequestPublicKeyCredential extends PublicKeyCredential {
   response: AuthenticatorAssertionResponse;
   toJSON(): AuthenticationResponseJSON;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticationresponsejson */
 export interface AuthenticationResponseJSON {
   readonly id: Base64urlString;
   readonly rawId: Base64urlString;
@@ -126,6 +135,7 @@ export interface AuthenticationResponseJSON {
   readonly type: string;
 }
 
+/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorassertionresponsejson */
 interface AuthenticatorAssertionResponseJSON {
   readonly clientDataJSON: Base64urlString;
   readonly authenticatorData: Base64urlString;
@@ -134,8 +144,9 @@ interface AuthenticatorAssertionResponseJSON {
   readonly attestationObject?: Base64urlString;
 }
 
-/** @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson */
-export function toRegistrationResponseJson(credential: PublicKeyCredential): RegistrationResponseJSON {
+// Not standard mapping functions
+
+export function toRegistrationResponseJSON(credential: PublicKeyCredential): RegistrationResponseJSON {
   const attestationResponse = credential.response as AuthenticatorAttestationResponse;
   const publicKey = attestationResponse.getPublicKey();
   const responseJSON = {
@@ -158,8 +169,7 @@ export function toRegistrationResponseJson(credential: PublicKeyCredential): Reg
   };
 }
 
-/** @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson */
-export function toAuthenticationResponseJson(credential: PublicKeyCredential): AuthenticationResponseJSON {
+export function toAuthenticationResponseJSON(credential: PublicKeyCredential): AuthenticationResponseJSON {
   const assertionResponse = credential.response as AuthenticatorAssertionResponse;
   const responseJson = {
     clientDataJSON: encodeBase64Url(assertionResponse.clientDataJSON),
@@ -178,8 +188,90 @@ export function toAuthenticationResponseJson(credential: PublicKeyCredential): A
   };
 }
 
-function encodeBase64Url(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+export function toCreationOptionsJSON(
+  options: PublicKeyCredentialCreationOptions,
+): PublicKeyCredentialCreationOptionsJSON {
+  return {
+    rp: options.rp,
+    user: { ...options.user, id: encodeBase64Url(options.user.id) },
+    challenge: encodeBase64Url(options.challenge),
+    pubKeyCredParams: options.pubKeyCredParams,
+    timeout: options.timeout,
+    excludeCredentials: options.excludeCredentials?.map((cred) => ({
+      id: encodeBase64Url(cred.id),
+      type: cred.type,
+      transports: cred.transports,
+    })),
+    authenticatorSelection: options.authenticatorSelection,
+    attestation: options.attestation,
+    extensions: options.extensions,
+  };
+}
+
+export function toRequestOptionsJSON(
+  options: PublicKeyCredentialRequestOptions,
+): PublicKeyCredentialRequestOptionsJSON {
+  return {
+    challenge: encodeBase64Url(options.challenge),
+    timeout: options.timeout,
+    rpId: options.rpId,
+    allowCredentials: options.allowCredentials?.map((cred) => ({
+      id: encodeBase64Url(cred.id),
+      type: cred.type,
+      transports: cred.transports,
+    })),
+    userVerification: options.userVerification,
+    extensions: options.extensions,
+  };
+}
+
+export function parseRegistrationResponseFromJSON(options: RegistrationResponseJSON): CreatePublicKeyCredential {
+  return {
+    id: options.id,
+    rawId: decodeBase64Url(options.rawId),
+    response: {
+      clientDataJSON: decodeBase64Url(options.response.clientDataJSON),
+      getAuthenticatorData: () => decodeBase64Url(options.response.authenticatorData),
+      getTransports: () => options.response.transports,
+      getPublicKey: () => (options.response.publicKey ? decodeBase64Url(options.response.publicKey) : null),
+      getPublicKeyAlgorithm: () => options.response.publicKeyAlgorithm || 0,
+      attestationObject: decodeBase64Url(options.response.attestationObject),
+    },
+    authenticatorAttachment: options.authenticatorAttachment || null,
+    getClientExtensionResults: () => options.clientExtensionResults,
+    toJSON: () => options,
+    type: options.type,
+  };
+}
+
+export function parseAuthenticationResponseFromJSON(options: AuthenticationResponseJSON): RequestPublicKeyCredential {
+  return {
+    id: options.id,
+    rawId: decodeBase64Url(options.rawId),
+    response: {
+      clientDataJSON: decodeBase64Url(options.response.clientDataJSON),
+      authenticatorData: decodeBase64Url(options.response.authenticatorData),
+      signature: decodeBase64Url(options.response.signature),
+      userHandle: options.response.userHandle ? decodeBase64Url(options.response.userHandle) : null,
+    },
+    authenticatorAttachment: options.authenticatorAttachment || null,
+    getClientExtensionResults: () => options.clientExtensionResults,
+    toJSON: () => options,
+    type: options.type,
+  };
+}
+
+// Helper functions
+
+function toArrayBuffer(bufferSource: BufferSource): ArrayBuffer {
+  if (bufferSource instanceof ArrayBuffer) {
+    return bufferSource;
+  }
+  return bufferSource.buffer.slice(bufferSource.byteOffset, bufferSource.byteOffset + bufferSource.byteLength);
+}
+
+function encodeBase64Url(buffer: BufferSource): string {
+  return btoa(String.fromCharCode(...new Uint8Array(toArrayBuffer(buffer))))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
