@@ -1,9 +1,15 @@
 import EncodeUtils from "../libs/encode-utils";
 import {
-  type AuthenticationPublicKeyCredential,
-  type RegistrationPublicKeyCredential,
-  toAuthenticationResponseJson,
-  toRegistrationResponseJson,
+  type AuthenticationResponseJSON,
+  type CreatePublicKeyCredential,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+  type RegistrationResponseJSON,
+  type RequestPublicKeyCredential,
+  parseCreationOptionsFromJSON,
+  parseRequestOptionsFromJSON,
+  toAuthenticationResponseJSON,
+  toRegistrationResponseJSON,
 } from "../webauthn/webauthn-model-json";
 import { AuthenticatorEmulator } from "./authenticator";
 
@@ -22,8 +28,20 @@ import {
 export class WebAuthnApiEmulator {
   public authenticator = new AuthenticatorEmulator();
 
+  public getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
+    const options = parseRequestOptionsFromJSON(optionsJSON);
+    const response = this.get(origin, { publicKey: options });
+    return toAuthenticationResponseJSON(response);
+  }
+
+  public createJSON(origin: string, optionsJSON: PublicKeyCredentialCreationOptionsJSON): RegistrationResponseJSON {
+    const options = parseCreationOptionsFromJSON(optionsJSON);
+    const response = this.create(origin, { publicKey: options });
+    return toRegistrationResponseJSON(response);
+  }
+
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */
-  public async get(origin: string, options: CredentialRequestOptions): Promise<AuthenticationPublicKeyCredential> {
+  public get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
     const rpId = new RpId(options.publicKey.rpId || "");
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
@@ -50,7 +68,7 @@ export class WebAuthnApiEmulator {
 
     const signature = this.authenticator.sign(rpId, authenticatorData, clientData);
 
-    const publicKeyCredential: AuthenticationPublicKeyCredential = {
+    const publicKeyCredential: RequestPublicKeyCredential = {
       id: EncodeUtils.encodeBase64Url(credential.attestedCredentialData.credentialId),
       type: "public-key",
       rawId: credential.attestedCredentialData.credentialId,
@@ -62,14 +80,14 @@ export class WebAuthnApiEmulator {
       },
       authenticatorAttachment: null,
       getClientExtensionResults: () => ({ credProps: { rk: true } }),
-      toJSON: () => toAuthenticationResponseJson(publicKeyCredential),
+      toJSON: () => toAuthenticationResponseJSON(publicKeyCredential),
     };
 
     return publicKeyCredential;
   }
 
   /** @see https://developer.mozilla.org/ja/docs/Web/API/CredentialsContainer/create */
-  public async create(origin: string, options: CredentialCreationOptions): Promise<RegistrationPublicKeyCredential> {
+  public create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential {
     if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rp.id || "");
@@ -112,14 +130,14 @@ export class WebAuthnApiEmulator {
       getTransports: () => credential.publicKeyCredentialDescriptor.transports || [],
     };
 
-    const publicKeyCredential: RegistrationPublicKeyCredential = {
+    const publicKeyCredential: CreatePublicKeyCredential = {
       id: EncodeUtils.encodeBase64Url(credential.attestedCredentialData.credentialId),
       type: "public-key",
       rawId: credential.attestedCredentialData.credentialId,
       response,
       authenticatorAttachment: null,
       getClientExtensionResults: () => ({ credProps: { rk: true } }),
-      toJSON: () => toRegistrationResponseJson(publicKeyCredential),
+      toJSON: () => toRegistrationResponseJSON(publicKeyCredential),
     };
 
     return publicKeyCredential;
