@@ -15,14 +15,14 @@ import {
 describe("WebAuthn JSON Model Test", () => {
   const creationOption: PublicKeyCredentialCreationOptions = {
     rp: { name: "webauthn.io", id: "webauthn.io" },
-    user: { id: EncodeUtils.toUint8Array("test-user"), name: "user", displayName: "user" },
-    challenge: EncodeUtils.toUint8Array("challenge"),
+    user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
+    challenge: EncodeUtils.strToUint8Array("challenge"),
     pubKeyCredParams: [{ alg: -7, type: "public-key" }],
   };
 
   const requestOption: PublicKeyCredentialRequestOptions = {
-    challenge: EncodeUtils.toUint8Array("challenge"),
-    allowCredentials: [{ id: EncodeUtils.toUint8Array("test-credential"), type: "public-key" }],
+    challenge: EncodeUtils.strToUint8Array("challenge"),
+    allowCredentials: [{ id: EncodeUtils.strToUint8Array("test-credential"), type: "public-key" }],
     rpId: "webauthn.io",
     timeout: 60000,
     userVerification: "required",

@@ -44,7 +44,7 @@ export class AuthenticatorEmulator {
   public generateCredential(
     rpId: RpId,
     keyParams: PublicKeyCredentialParameters[],
-    userHandle: Uint8Array | undefined = undefined,
+    userHandle: Uint8Array | undefined,
   ): PasskeyCredential {
     const allowAlgSet = new Set(keyParams.map((param) => param.alg));
     const alg = this.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
