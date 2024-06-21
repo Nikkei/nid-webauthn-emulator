@@ -263,21 +263,20 @@ export function parseAuthenticationResponseFromJSON(options: AuthenticationRespo
 
 // Helper functions
 
-function toArrayBuffer(bufferSource: BufferSource): ArrayBuffer {
-  if (bufferSource instanceof ArrayBuffer) {
-    return bufferSource;
-  }
-  return bufferSource.buffer.slice(bufferSource.byteOffset, bufferSource.byteOffset + bufferSource.byteLength);
-}
-
-function encodeBase64Url(buffer: BufferSource): string {
+export function encodeBase64Url(buffer: BufferSource): string {
+  const toArrayBuffer = (bufferSource: BufferSource): ArrayBuffer => {
+    if (bufferSource instanceof ArrayBuffer) {
+      return bufferSource;
+    }
+    return bufferSource.buffer.slice(bufferSource.byteOffset, bufferSource.byteOffset + bufferSource.byteLength);
+  };
   return btoa(String.fromCharCode(...new Uint8Array(toArrayBuffer(buffer))))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");
 }
 
-function decodeBase64Url(base64Url: string): ArrayBuffer {
+export function decodeBase64Url(base64Url: string): ArrayBuffer {
   const base64 = base64Url
     .replace(/-/g, "+")
     .replace(/_/g, "/")

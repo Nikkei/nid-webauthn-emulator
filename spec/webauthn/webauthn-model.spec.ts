@@ -9,8 +9,8 @@ describe("WebAuthn Model Test", () => {
     const createResponse = await webauthnEmulator.create("https://webauthn.io", {
       publicKey: {
         rp: { name: "webauthn.io", id: "webauthn.io" },
-        user: { id: EncodeUtils.toUint8Array("test-user"), name: "user", displayName: "user" },
-        challenge: EncodeUtils.toUint8Array("challenge"),
+        user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
+        challenge: EncodeUtils.strToUint8Array("challenge"),
         pubKeyCredParams: [{ alg: -7, type: "public-key" }],
       },
     });
