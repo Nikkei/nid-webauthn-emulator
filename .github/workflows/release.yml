@@ -19,10 +19,6 @@ jobs:
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
-        with:
-          registry-url: https://npm.pkg.github.com/
-
       - name: Install dependencies
         run: pnpm install
 
