@@ -28,6 +28,10 @@ function bufferSourceToUint8Array(data: BufferSource): Uint8Array {
   return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
 }
 
+function bufferSourceToBase64Url(data: BufferSource): string {
+  return encodeBase64Url(bufferSourceToUint8Array(data));
+}
+
 function encodeCbor(data: Map<unknown, unknown>): Uint8Array {
   const canonicalData = new Map();
   for (const [key, value] of data) {
@@ -49,6 +53,7 @@ function decodeCbor<T>(data: Uint8Array): T {
 const EncodeUtils = {
   strToUint8Array,
   bufferSourceToUint8Array,
+  bufferSourceToBase64Url,
   encodeBase64Url,
   decodeBase64Url,
   encodeCbor,

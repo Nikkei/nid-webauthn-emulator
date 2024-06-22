@@ -23,6 +23,18 @@ export type SignResponse = {
   readonly userHandle?: Uint8Array;
 };
 
+export type AuthenticatorParameters = {
+  readonly aaguid: Uint8Array;
+  readonly transports: AuthenticatorTransport[];
+  readonly algorithmIdentifiers: readonly (keyof typeof COSEAlgorithmIdentifier)[];
+  readonly signCounterIncrement: number;
+  readonly verifications: { readonly userPresent: boolean; readonly userVerified: boolean };
+  readonly credentialSelector: (
+    rpId: RpId,
+    credentialDescriptors: PublicKeyCredentialDescriptor[],
+  ) => PublicKeyCredentialDescriptor | undefined;
+};
+
 /**
  * Authenticator emulator
  */
@@ -34,16 +46,27 @@ export class AuthenticatorEmulator {
   private static readonly DEFAULT_ALGORITHM_IDENTIFIERS = ["ES256", "RS256", "EdDSA"] as const;
   private static readonly DEFAULT_SIGN_COUNTER_INCREMENT = 1;
   private static readonly DEFAULT_VERIFICATIONS = { userPresent: true, userVerified: true };
+  private static readonly DEFAULT_CREDENTIAL_SELECTOR = (
+    _: RpId,
+    credentialDescriptors: PublicKeyCredentialDescriptor[],
+  ) => {
+    if (credentialDescriptors.length === 0) return undefined;
+    return credentialDescriptors[0];
+  };
 
   public credentials: PasskeyCredential[] = [];
+  public params: AuthenticatorParameters;
 
-  constructor(
-    private aaguid = AuthenticatorEmulator.DEFAULT_AAGUID,
-    private transports = AuthenticatorEmulator.DEFAULT_TRANSPORTS,
-    private algorithmIdentifiers = AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
-    private signCounterIncrement = AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
-    private verifications = AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
-  ) {}
+  constructor(params: Partial<AuthenticatorParameters> = {}) {
+    this.params = {
+      aaguid: params.aaguid ?? AuthenticatorEmulator.DEFAULT_AAGUID,
+      transports: params.transports ?? AuthenticatorEmulator.DEFAULT_TRANSPORTS,
+      algorithmIdentifiers: params.algorithmIdentifiers ?? AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
+      signCounterIncrement: params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
+      verifications: params.verifications ?? AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
+      credentialSelector: params.credentialSelector ?? AuthenticatorEmulator.DEFAULT_CREDENTIAL_SELECTOR,
+    };
+  }
 
   /**
    * Generate a passkey's credential
@@ -64,9 +87,9 @@ export class AuthenticatorEmulator {
     }
 
     const allowAlgSet = new Set(keyParams.map((param) => param.alg));
-    const alg = this.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
+    const alg = this.params.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
     if (!alg) throw new Error("Invalid algorithm");
-    const credential = generateCredential(this.aaguid, rpId, userHandle, alg, this.transports);
+    const credential = generateCredential(this.params.aaguid, rpId, userHandle, alg, this.params.transports);
     this.credentials.push(credential);
     return credential;
   }
@@ -78,21 +101,26 @@ export class AuthenticatorEmulator {
    * @returns PasskeyCredential
    */
   public getCredential(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential | undefined {
-    const allowIds = new Set(
-      credentialsFilter.map((descriptor) =>
-        EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(descriptor.id)),
-      ),
-    );
+    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.bufferSourceToBase64Url(descriptor.id)));
 
-    return this.credentials.find((credential) => {
+    const credentials = this.credentials.filter((credential) => {
       if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
       if (credentialsFilter.length > 0) {
         const rawId = credential.publicKeyCredentialDescriptor.id;
-        const id = EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(rawId));
-        if (!allowIds?.has(id)) return false;
+        if (!allowIds?.has(EncodeUtils.bufferSourceToBase64Url(rawId))) return false;
       }
       return true;
     });
+
+    const credentialDescriptors = credentials.map((credential) => credential.publicKeyCredentialDescriptor);
+    const selectedDescriptor = this.params.credentialSelector(rpId, credentialDescriptors);
+    if (!selectedDescriptor) return undefined;
+    const selectedCredential = credentials.find(
+      (credential) =>
+        EncodeUtils.bufferSourceToBase64Url(credential.publicKeyCredentialDescriptor.id) ===
+        EncodeUtils.bufferSourceToBase64Url(selectedDescriptor.id),
+    );
+    return selectedCredential;
   }
 
   /**
@@ -116,14 +144,14 @@ export class AuthenticatorEmulator {
     const authenticatorData = {
       rpIdHash: credential.authenticatorData.rpIdHash,
       flags: {
-        userPresent: this.verifications.userPresent,
-        userVerified: this.verifications.userVerified,
+        userPresent: this.params.verifications.userPresent,
+        userVerified: this.params.verifications.userVerified,
         backupEligibility: credential.authenticatorData.flags.backupEligibility,
         backupState: true,
         attestedCredentialData: false,
         extensionData: false,
       },
-      signCount: credential.authenticatorData.signCount + this.signCounterIncrement,
+      signCount: credential.authenticatorData.signCount + this.params.signCounterIncrement,
     };
     payload.push(...packAuthenticatorData(authenticatorData));
     payload.push(...clientDataHash);
