@@ -8,7 +8,7 @@ import {
 } from "../webauthn/webauthn-model-json";
 
 export const WebAuthnEmulatorGet = "webAuthnEmulatorGet";
-export const WebAuthnEmulatorCreate = "webAuthnEmulator";
+export const WebAuthnEmulatorCreate = "webAuthnEmulatorCreate";
 export const HookWebAuthnApis = `
 (function () {
   ${encodeBase64Url.toString()}
