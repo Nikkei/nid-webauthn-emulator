@@ -6,16 +6,15 @@ import { packAttestationObject, unpackAttestationObject } from "../../src/webaut
 describe("WebAuthn Model Test", () => {
   const webauthnEmulator = new WebAuthnEmulator();
   test("Attestation Object pack and unpack", async () => {
-    const createResponse = webauthnEmulator.create("https://webauthn.io", {
+    const createResponse = webauthnEmulator.create("https://test-rp.org", {
       publicKey: {
-        rp: { name: "webauthn.io", id: "webauthn.io" },
+        rp: { name: "test-rp.org", id: "test-rp.org" },
         user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
         challenge: EncodeUtils.strToUint8Array("challenge"),
         pubKeyCredParams: [{ alg: -7, type: "public-key" }],
       },
     });
 
-    webauthnEmulator.authenticator.credentials[0].authenticatorData.signCount = 12;
     const testData = new Uint8Array(createResponse.response.attestationObject);
     const unpacked = unpackAttestationObject(testData);
     const rePacked = packAttestationObject(unpacked);

@@ -14,7 +14,7 @@ import {
 
 describe("WebAuthn JSON Model Test", () => {
   const creationOption: PublicKeyCredentialCreationOptions = {
-    rp: { name: "webauthn.io", id: "webauthn.io" },
+    rp: { name: "test-rp.org", id: "test-rp.org" },
     user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
     challenge: EncodeUtils.strToUint8Array("challenge"),
     pubKeyCredParams: [{ alg: -7, type: "public-key" }],
@@ -23,7 +23,7 @@ describe("WebAuthn JSON Model Test", () => {
   const requestOption: PublicKeyCredentialRequestOptions = {
     challenge: EncodeUtils.strToUint8Array("challenge"),
     allowCredentials: [{ id: EncodeUtils.strToUint8Array("test-credential"), type: "public-key" }],
-    rpId: "webauthn.io",
+    rpId: "test-rp.org",
     timeout: 60000,
     userVerification: "required",
   };
@@ -39,7 +39,7 @@ describe("WebAuthn JSON Model Test", () => {
   });
 
   test("Create Response JSON Serialize Deserialize test", async () => {
-    const response = emulator.create("https://webauthn.io", { publicKey: creationOption });
+    const response = emulator.create("https://test-rp.org", { publicKey: creationOption });
 
     const json = toRegistrationResponseJSON(response);
     const model = parseRegistrationResponseFromJSON(json);
@@ -57,7 +57,7 @@ describe("WebAuthn JSON Model Test", () => {
   });
 
   test("Get Response JSON Serialize Deserialize test", async () => {
-    const response = emulator.get("https://webauthn.io", {
+    const response = emulator.get("https://test-rp.org", {
       publicKey: { ...requestOption, allowCredentials: undefined },
     });
     const json = toAuthenticationResponseJSON(response);
