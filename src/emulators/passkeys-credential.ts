@@ -5,7 +5,7 @@ export type PasskeyCredential = {
   readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
   readonly publicKeyCredentialSource: PublicKeyCredentialSource;
   readonly authenticatorData: AuthenticatorData;
-  readonly user: PublicKeyCredentialUserEntity;
+  readonly user: PublicKeyCredentialUserEntity | undefined;
 };
 
 /**

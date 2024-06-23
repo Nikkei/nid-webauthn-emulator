@@ -15,6 +15,12 @@ import { AuthenticatorEmulator } from "./authenticator";
 
 import { createHash } from "node:crypto";
 import {
+  packGetAssertionRequest,
+  packMakeCredentialRequest,
+  unpackGetAssertionResponse,
+  unpackMakeCredentialResponse,
+} from "../ctap/ctap-model";
+import {
   type AttestationObject,
   type AttestedCredentialData,
   type CollectedClientData,
@@ -55,11 +61,12 @@ export class WebAuthnApiEmulator {
       crossOrigin: false,
     };
 
-    const authenticatorResponse = this.authenticator.authenticatorGetAssertion({
+    const authenticatorRequest = packGetAssertionRequest({
       rpId: rpId.value,
       clientDataHash: createHash("sha256").update(JSON.stringify(clientData)).digest(),
       allowList: options.publicKey.allowCredentials,
     });
+    const authenticatorResponse = unpackGetAssertionResponse(this.authenticator.command(authenticatorRequest));
 
     const responseId = authenticatorResponse.credential?.id ?? options.publicKey.allowCredentials?.[0]?.id;
     if (!responseId) throw new Error("No credential ID found");
@@ -99,13 +106,18 @@ export class WebAuthnApiEmulator {
     };
     const clientDataJSON = JSON.stringify(clientData);
 
-    const authenticatorResponse = this.authenticator.authenticatorMakeCredential({
+    const authenticatorRequest = packMakeCredentialRequest({
       clientDataHash: createHash("sha256").update(clientDataJSON).digest(),
       rp: options.publicKey.rp,
       user: options.publicKey.user,
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
       excludeList: options.publicKey.excludeCredentials,
+      options: {
+        rk: options.publicKey.authenticatorSelection?.requireResidentKey,
+        uv: options.publicKey.authenticatorSelection?.userVerification !== "discouraged",
+      },
     });
+    const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
 
     const authData = unpackAuthenticatorData(authenticatorResponse.authData);
     const attestedCredentialData = authData.attestedCredentialData as AttestedCredentialData;
