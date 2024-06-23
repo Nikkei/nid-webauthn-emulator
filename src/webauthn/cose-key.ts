@@ -1,5 +1,5 @@
 import crypto, { type JsonWebKey, type KeyObject } from "node:crypto";
-import EncodeUtils from "./encode-utils";
+import EncodeUtils from "../libs/encode-utils";
 
 /** @see https://www.w3.org/TR/webauthn/#sctn-encoded-credPubKey-examples */
 export abstract class CoseKey {

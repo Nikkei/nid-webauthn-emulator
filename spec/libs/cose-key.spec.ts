@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
-import { AuthenticatorEmulator } from "../../src/authenticator/authenticator";
-import { CoseKey } from "../../src/libs/cose-key";
+import { AuthenticatorEmulator } from "../../src/authenticator/authenticator-emulator";
+import { CoseKey } from "../../src/webauthn/cose-key";
 import { RpId, unpackAuthenticatorData } from "../../src/webauthn/webauthn-model";
 
 describe.each([-7, -8, -257])("CoseKey Test: %s", (alg) => {

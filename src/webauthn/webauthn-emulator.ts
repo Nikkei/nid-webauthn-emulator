@@ -1,4 +1,4 @@
-import { AuthenticatorEmulator } from "../authenticator/authenticator";
+import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
 import EncodeUtils from "../libs/encode-utils";
 import {
   type AuthenticationResponseJSON,

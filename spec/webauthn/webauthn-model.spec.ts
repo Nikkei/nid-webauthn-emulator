@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
 import EncodeUtils from "../../src/libs/encode-utils";
-import { WebAuthnEmulator } from "../../src/webauthn/webauthn-api";
+import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import { packAttestationObject, unpackAttestationObject } from "../../src/webauthn/webauthn-model";
 
 describe("WebAuthn Model Test", () => {
