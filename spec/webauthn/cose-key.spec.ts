@@ -1,15 +1,20 @@
 import { describe, expect, test } from "@jest/globals";
 import { AuthenticatorEmulator } from "../../src/emulators/authenticator";
 import { CoseKey } from "../../src/webauthn/cose-key";
-import { RpId } from "../../src/webauthn/webauthn-model";
+import { RpId, unpackAuthenticatorData } from "../../src/webauthn/webauthn-model";
 
 describe.each([-7, -8, -257])("CoseKey Test: %s", (alg) => {
   const getKey = () => {
     const authenticator = new AuthenticatorEmulator();
     const rpId = new RpId("example.com");
     const userHandle = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
-    const credential = authenticator.generateCredential(rpId, [{ alg, type: "public-key" }], [], userHandle);
-    return credential.authenticatorData.attestedCredentialData?.credentialPublicKey as CoseKey;
+    const credential = authenticator.authenticatorMakeCredential({
+      rp: { id: rpId.value, name: "example" },
+      user: { id: userHandle, name: "example", displayName: "example" },
+      pubKeyCredParams: [{ alg, type: "public-key" }],
+      clientDataHash: new Uint8Array(32),
+    });
+    return unpackAuthenticatorData(credential.authData).attestedCredentialData?.credentialPublicKey as CoseKey;
   };
 
   test("Der format _ serialize and deserialize test", async () => {

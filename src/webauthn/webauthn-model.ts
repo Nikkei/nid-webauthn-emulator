@@ -7,7 +7,7 @@ export class RpId {
   constructor(public readonly value: string) {}
 
   public get hash(): Uint8Array {
-    return createHash("sha256").update(this.value).digest();
+    return new Uint8Array(createHash("sha256").update(this.value).digest());
   }
 
   /** @see https://www.w3.org/TR/webauthn-3/#sctn-validating-origin */
@@ -134,7 +134,7 @@ export function unpackAttestationObject(attestationObject: Uint8Array): Attestat
 export function unpackAuthenticatorData(authData: Uint8Array): AuthenticatorData {
   const rpIdHash = authData.slice(0, 32);
   const flags = unpackAuthenticatorDataFlags(authData[32]);
-  const signCount = authData[33] | (authData[34] << 8) | (authData[35] << 16) | (authData[36] << 24);
+  const signCount = (authData[33] << 24) | (authData[34] << 16) | (authData[35] << 8) | authData[36];
   const attestedCredentialData = flags.attestedCredentialData
     ? unpackAttestedCredentialData(authData.slice(37))
     : undefined;
