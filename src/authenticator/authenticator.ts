@@ -1,4 +1,13 @@
 import { createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
+import type { PasskeyCredential } from "../emulators/passkeys-credential";
+import { CoseKey } from "../libs/cose-key";
+import EncodeUtils from "../libs/encode-utils";
+import {
+  type AuthenticatorData,
+  type PublicKeyCredentialSource,
+  RpId,
+  packAuthenticatorData,
+} from "../webauthn/webauthn-model";
 import {
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
@@ -13,16 +22,7 @@ import {
   packGetAssertionResponse,
   packMakeCredentialResponse,
   unpackRequest,
-} from "../ctap/ctap-model";
-import EncodeUtils from "../libs/encode-utils";
-import { CoseKey } from "../webauthn/cose-key";
-import {
-  type AuthenticatorData,
-  type PublicKeyCredentialSource,
-  RpId,
-  packAuthenticatorData,
-} from "../webauthn/webauthn-model";
-import type { PasskeyCredential } from "./passkeys-credential";
+} from "./ctap-model";
 
 type InteractionResponse = {
   user: PublicKeyCredentialUserEntity;

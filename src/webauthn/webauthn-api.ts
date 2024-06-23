@@ -1,3 +1,4 @@
+import { AuthenticatorEmulator } from "../authenticator/authenticator";
 import EncodeUtils from "../libs/encode-utils";
 import {
   type AuthenticationResponseJSON,
@@ -10,8 +11,7 @@ import {
   parseRequestOptionsFromJSON,
   toAuthenticationResponseJSON,
   toRegistrationResponseJSON,
-} from "../webauthn/webauthn-model-json";
-import { AuthenticatorEmulator } from "./authenticator";
+} from "./webauthn-model-json";
 
 import { createHash } from "node:crypto";
 import {
@@ -19,7 +19,7 @@ import {
   packMakeCredentialRequest,
   unpackGetAssertionResponse,
   unpackMakeCredentialResponse,
-} from "../ctap/ctap-model";
+} from "../authenticator/ctap-model";
 import {
   type AttestationObject,
   type AttestedCredentialData,
@@ -28,7 +28,7 @@ import {
   packAttestationObject,
   packAuthenticatorData,
   unpackAuthenticatorData,
-} from "../webauthn/webauthn-model";
+} from "./webauthn-model";
 
 /**
  * WebAuthn API emulator

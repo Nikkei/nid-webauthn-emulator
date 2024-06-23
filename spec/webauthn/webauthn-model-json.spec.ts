@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
-import { WebAuthnApiEmulator } from "../../src/emulators/webauthn-api";
 import EncodeUtils from "../../src/libs/encode-utils";
+import { WebAuthnApiEmulator } from "../../src/webauthn/webauthn-api";
 import {
   parseAuthenticationResponseFromJSON,
   parseCreationOptionsFromJSON,
