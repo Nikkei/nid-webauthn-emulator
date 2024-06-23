@@ -29,7 +29,7 @@ const origin = "https://webauthn.io";
 const emulator = new WebAuthnEmulator();
 const webauthnIO = await WebAuthnIO.create();
 
-// 登録用の Options を webauthn.io から取得します
+// Authenticator の情報を表示します
 console.log("Authenticator Information", emulator.getAuthenticatorInfo());
 
 // WebAuthn API Emulator により パスキーを作成します

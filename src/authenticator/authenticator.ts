@@ -201,13 +201,13 @@ export class AuthenticatorEmulator {
   }
 
   private getCredentials(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential[] {
-    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.bufferSourceToBase64Url(descriptor.id)));
+    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.encodeBase64Url(descriptor.id)));
     const credentials = this.params.credentialsRepository.loadCredentials();
     return credentials.filter((credential) => {
       if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
       if (credentialsFilter.length > 0) {
         const rawId = credential.publicKeyCredentialDescriptor.id;
-        if (!allowIds?.has(EncodeUtils.bufferSourceToBase64Url(rawId))) return false;
+        if (!allowIds?.has(EncodeUtils.encodeBase64Url(rawId))) return false;
       }
       return true;
     });
