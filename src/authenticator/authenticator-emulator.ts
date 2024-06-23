@@ -1,8 +1,8 @@
 import { createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
-import { CoseKey } from "../libs/cose-key";
 import EncodeUtils from "../libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
 import type { PasskeyCredential, PasskeysCredentialsRepository } from "../repository/credentials-repository";
+import { CoseKey } from "../webauthn/cose-key";
 import {
   type AuthenticatorData,
   type PublicKeyCredentialSource,

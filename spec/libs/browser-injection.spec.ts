@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { HookWebAuthnApis } from "../../src/libs/browser-injection";
+import { HookWebAuthnApis } from "../../src/test-utils/browser-injection";
 
 describe("Browser Injection Test", () => {
   test("Browser Injection Test", async () => {
