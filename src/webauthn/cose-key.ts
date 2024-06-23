@@ -83,7 +83,10 @@ class CoseKeyP256 extends CoseKey {
 
   public static fromBytes(bytes: Uint8Array): CoseKeyP256 {
     const coseKey = EncodeUtils.decodeCbor<Map<number, unknown>>(bytes);
-    return new CoseKeyP256(coseKey.get(-2) as Uint8Array, coseKey.get(-3) as Uint8Array);
+    return new CoseKeyP256(
+      EncodeUtils.bufferSourceToUint8Array(coseKey.get(-2) as BufferSource),
+      EncodeUtils.bufferSourceToUint8Array(coseKey.get(-3) as BufferSource),
+    );
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyP256 {
@@ -115,7 +118,7 @@ class CoseKeyEd25519 extends CoseKey {
 
   public static fromBytes(bytes: Uint8Array): CoseKeyEd25519 {
     const coseKey = EncodeUtils.decodeCbor<Map<number, unknown>>(bytes);
-    return new CoseKeyEd25519(coseKey.get(-2) as Uint8Array);
+    return new CoseKeyEd25519(EncodeUtils.bufferSourceToUint8Array(coseKey.get(-2) as BufferSource));
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyEd25519 {
@@ -150,7 +153,10 @@ class CoseKeyRSA extends CoseKey {
 
   public static fromBytes(bytes: Uint8Array): CoseKeyRSA {
     const coseKey = EncodeUtils.decodeCbor<Map<number, unknown>>(bytes);
-    return new CoseKeyRSA(coseKey.get(-1) as Uint8Array, coseKey.get(-2) as Uint8Array);
+    return new CoseKeyRSA(
+      EncodeUtils.bufferSourceToUint8Array(coseKey.get(-1) as BufferSource),
+      EncodeUtils.bufferSourceToUint8Array(coseKey.get(-1) as BufferSource),
+    );
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyRSA {

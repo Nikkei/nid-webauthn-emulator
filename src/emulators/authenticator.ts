@@ -1,11 +1,16 @@
-import { createHash, createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
+import type {
+  AuthenticatorGetAssertionRequest,
+  AuthenticatorGetAssertionResponse,
+  AuthenticatorMakeCredentialRequest,
+  AuthenticatorMakeCredentialResponse,
+} from "../ctap/ctap-model";
 import EncodeUtils from "../libs/encode-utils";
 import { CoseKey } from "../webauthn/cose-key";
 import {
   type AuthenticatorData,
-  type CollectedClientData,
   type PublicKeyCredentialSource,
-  type RpId,
+  RpId,
   packAuthenticatorData,
 } from "../webauthn/webauthn-model";
 import type { PasskeyCredential } from "./passkeys-credential";
@@ -16,23 +21,13 @@ export const COSEAlgorithmIdentifier = {
   EdDSA: -8,
 };
 
-export type SignResponse = {
-  readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
-  readonly authenticatorData: AuthenticatorData;
-  readonly signature: Uint8Array;
-  readonly userHandle?: Uint8Array;
-};
-
 export type AuthenticatorParameters = {
   readonly aaguid: Uint8Array;
   readonly transports: AuthenticatorTransport[];
   readonly algorithmIdentifiers: readonly (keyof typeof COSEAlgorithmIdentifier)[];
   readonly signCounterIncrement: number;
   readonly verifications: { readonly userPresent: boolean; readonly userVerified: boolean };
-  readonly credentialSelector: (
-    rpId: RpId,
-    credentialDescriptors: PublicKeyCredentialDescriptor[],
-  ) => PublicKeyCredentialDescriptor | undefined;
+  readonly userName: string;
 };
 
 /**
@@ -46,13 +41,7 @@ export class AuthenticatorEmulator {
   private static readonly DEFAULT_ALGORITHM_IDENTIFIERS = ["ES256", "RS256", "EdDSA"] as const;
   private static readonly DEFAULT_SIGN_COUNTER_INCREMENT = 1;
   private static readonly DEFAULT_VERIFICATIONS = { userPresent: true, userVerified: true };
-  private static readonly DEFAULT_CREDENTIAL_SELECTOR = (
-    _: RpId,
-    credentialDescriptors: PublicKeyCredentialDescriptor[],
-  ) => {
-    if (credentialDescriptors.length === 0) return undefined;
-    return credentialDescriptors[0];
-  };
+  private static readonly DEFAULT_USER_NAME = "nid-authenticator-emulator-user";
 
   public credentials: PasskeyCredential[] = [];
   public params: AuthenticatorParameters;
@@ -64,83 +53,43 @@ export class AuthenticatorEmulator {
       algorithmIdentifiers: params.algorithmIdentifiers ?? AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
       signCounterIncrement: params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
       verifications: params.verifications ?? AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
-      credentialSelector: params.credentialSelector ?? AuthenticatorEmulator.DEFAULT_CREDENTIAL_SELECTOR,
+      userName: params.userName ?? AuthenticatorEmulator.DEFAULT_USER_NAME,
     };
   }
 
-  /**
-   * Generate a passkey's credential
-   * @param rpId RP ID
-   * @param keyParams Key parameters
-   * @param userHandle User handle
-   * @returns PasskeyCredential
-   */
-  public generateCredential(
-    rpId: RpId,
-    keyParams: PublicKeyCredentialParameters[],
-    excludeCredentials: PublicKeyCredentialDescriptor[],
-    userHandle: Uint8Array | undefined,
-  ): PasskeyCredential {
-    if (excludeCredentials.length > 0) {
-      const existingCredentials = this.getCredential(rpId, excludeCredentials);
-      if (existingCredentials) throw new Error("Credential already exists");
+  /** @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred */
+  public authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse {
+    if (!request.rp.id) throw new Error("Invalid RP ID");
+    const rpId = new RpId(request.rp.id);
+    const userHandle = EncodeUtils.bufferSourceToUint8Array(request.user.id);
+    if (request.excludeList && request.excludeList.length > 0) {
+      const existingCredentials = this.getCredentials(rpId, request.excludeList);
+      if (existingCredentials.length > 0) throw new Error("Credential already exists");
     }
 
-    const allowAlgSet = new Set(keyParams.map((param) => param.alg));
+    const allowAlgSet = new Set(request.pubKeyCredParams.map((param) => param.alg));
     const alg = this.params.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
     if (!alg) throw new Error("Invalid algorithm");
-    const credential = generateCredential(this.params.aaguid, rpId, userHandle, alg, this.params.transports);
+
+    const { aaguid, transports, userName } = this.params;
+    const credential = generateCredential(aaguid, rpId, userHandle, userName, alg, transports);
     this.credentials.push(credential);
-    return credential;
+
+    return {
+      fmt: "packed",
+      authData: packAuthenticatorData(credential.authenticatorData),
+      attStmt: new Map(),
+    };
   }
 
-  /**
-   * Get a passkey's credential
-   * @param rpId RP ID
-   * @param credentialsFilter Allow credentials
-   * @returns PasskeyCredential
-   */
-  public getCredential(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential | undefined {
-    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.bufferSourceToBase64Url(descriptor.id)));
+  /** @see https://www.w3.org/TR/webauthn/#sctn-op-get-assertion */
+  public authenticatorGetAssertion(request: AuthenticatorGetAssertionRequest): AuthenticatorGetAssertionResponse {
+    const rpId = new RpId(request.rpId);
+    const credentials = this.getCredentials(rpId, request.allowList ?? []);
+    if (credentials.length === 0) throw new Error("No credentials found");
+    const credential = credentials[0];
 
-    const credentials = this.credentials.filter((credential) => {
-      if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
-      if (credentialsFilter.length > 0) {
-        const rawId = credential.publicKeyCredentialDescriptor.id;
-        if (!allowIds?.has(EncodeUtils.bufferSourceToBase64Url(rawId))) return false;
-      }
-      return true;
-    });
-
-    const credentialDescriptors = credentials.map((credential) => credential.publicKeyCredentialDescriptor);
-    const selectedDescriptor = this.params.credentialSelector(rpId, credentialDescriptors);
-    if (!selectedDescriptor) return undefined;
-    const selectedCredential = credentials.find(
-      (credential) =>
-        EncodeUtils.bufferSourceToBase64Url(credential.publicKeyCredentialDescriptor.id) ===
-        EncodeUtils.bufferSourceToBase64Url(selectedDescriptor.id),
-    );
-    return selectedCredential;
-  }
-
-  /**
-   * Get a signature for the passkey authentication
-   * @param rpId RP ID
-   * @param clientData Client data
-   * @param allowCredentials Allowed credentials
-   * @returns Signature
-   */
-  public sign(
-    rpId: RpId,
-    clientData: CollectedClientData,
-    allowCredentials: PublicKeyCredentialDescriptor[],
-  ): SignResponse {
-    const credential = this.getCredential(rpId, allowCredentials);
-    if (!credential) throw new Error("No credentials found");
-
-    const clientDataHash = createHash("sha256").update(JSON.stringify(clientData)).digest();
-    const payload = new Array<number>();
-
+    credential.authenticatorData.signCount += this.params.signCounterIncrement;
     const authenticatorData = {
       rpIdHash: credential.authenticatorData.rpIdHash,
       flags: {
@@ -151,30 +100,47 @@ export class AuthenticatorEmulator {
         attestedCredentialData: false,
         extensionData: false,
       },
-      signCount: credential.authenticatorData.signCount + this.params.signCounterIncrement,
+      signCount: credential.authenticatorData.signCount,
     };
+
+    const payload = new Array<number>();
     payload.push(...packAuthenticatorData(authenticatorData));
-    payload.push(...clientDataHash);
+    payload.push(...request.clientDataHash);
+
     const privateKey = createPrivateKey({
       format: "der",
       type: "pkcs8",
       key: credential.publicKeyCredentialSource.privateKey as Buffer,
     });
-    credential.authenticatorData.signCount++;
+
     const signature = createSign("sha256").update(new Uint8Array(payload)).sign(privateKey);
     return {
-      publicKeyCredentialDescriptor: credential.publicKeyCredentialDescriptor,
-      authenticatorData,
+      credential: credential.publicKeyCredentialDescriptor,
+      authData: packAuthenticatorData(authenticatorData),
       signature,
-      userHandle: credential.publicKeyCredentialSource.userHandle,
+      user: credential.user,
+      numberOfCredentials: this.credentials.length,
     };
+  }
+
+  private getCredentials(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential[] {
+    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.bufferSourceToBase64Url(descriptor.id)));
+    return this.credentials.filter((credential) => {
+      if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
+      if (credentialsFilter.length > 0) {
+        const rawId = credential.publicKeyCredentialDescriptor.id;
+        if (!allowIds?.has(EncodeUtils.bufferSourceToBase64Url(rawId))) return false;
+      }
+      return true;
+    });
   }
 }
 
 function generateCredential(
   aaguid: Uint8Array,
   rpId: RpId,
-  userHandle: Uint8Array | undefined,
+  userHandle: Uint8Array,
+  userName: string,
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
 ): PasskeyCredential {
@@ -218,9 +184,16 @@ function generateCredential(
     },
   };
 
+  const user: PublicKeyCredentialUserEntity = {
+    id: userHandle,
+    name: userName,
+    displayName: userName,
+  };
+
   return {
     publicKeyCredentialDescriptor,
     publicKeyCredentialSource,
     authenticatorData,
+    user,
   };
 }
