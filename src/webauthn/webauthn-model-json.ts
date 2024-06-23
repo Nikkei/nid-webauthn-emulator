@@ -21,14 +21,14 @@ export interface PublicKeyCredentialCreationOptionsJSON {
 }
 
 /** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentityjson */
-interface PublicKeyCredentialUserEntityJSON {
+export interface PublicKeyCredentialUserEntityJSON {
   readonly id: Base64urlString;
   readonly name: string;
   readonly displayName: string;
 }
 
 /** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialdescriptorjson */
-interface PublicKeyCredentialDescriptorJSON {
+export interface PublicKeyCredentialDescriptorJSON {
   readonly id: Base64urlString;
   readonly type: string;
   transports?: string[];
@@ -40,15 +40,11 @@ export function parseCreationOptionsFromJSON(
 ): PublicKeyCredentialCreationOptions {
   return {
     rp: optionsJSON.rp,
-    user: { ...optionsJSON.user, id: decodeBase64Url(optionsJSON.user.id) },
+    user: parsePublicKeyCredentialUserEntityFromJSON(optionsJSON.user),
     challenge: decodeBase64Url(optionsJSON.challenge),
     pubKeyCredParams: optionsJSON.pubKeyCredParams,
     timeout: optionsJSON.timeout,
-    excludeCredentials: optionsJSON.excludeCredentials?.map((cred) => ({
-      id: decodeBase64Url(cred.id),
-      type: cred.type as PublicKeyCredentialType,
-      transports: cred.transports as AuthenticatorTransport[],
-    })),
+    excludeCredentials: optionsJSON.excludeCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     authenticatorSelection: optionsJSON.authenticatorSelection,
     attestation: optionsJSON.attestation as AttestationConveyancePreference,
     extensions: optionsJSON.extensions,
@@ -79,11 +75,7 @@ export function parseRequestOptionsFromJSON(
     challenge: decodeBase64Url(optionsJSON.challenge),
     timeout: optionsJSON.timeout,
     rpId: optionsJSON.rpId,
-    allowCredentials: optionsJSON.allowCredentials?.map((cred) => ({
-      id: decodeBase64Url(cred.id),
-      transports: cred.transports as AuthenticatorTransport[],
-      type: cred.type as PublicKeyCredentialType,
-    })),
+    allowCredentials: optionsJSON.allowCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     userVerification: optionsJSON.userVerification as UserVerificationRequirement,
     extensions: optionsJSON.extensions,
   };
@@ -193,15 +185,11 @@ export function toCreationOptionsJSON(
 ): PublicKeyCredentialCreationOptionsJSON {
   return {
     rp: options.rp,
-    user: { ...options.user, id: encodeBase64Url(options.user.id) },
+    user: toPublicKeyCredentialUserEntityJSON(options.user),
     challenge: encodeBase64Url(options.challenge),
     pubKeyCredParams: options.pubKeyCredParams,
     timeout: options.timeout,
-    excludeCredentials: options.excludeCredentials?.map((cred) => ({
-      id: encodeBase64Url(cred.id),
-      type: cred.type,
-      transports: cred.transports,
-    })),
+    excludeCredentials: options.excludeCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     authenticatorSelection: options.authenticatorSelection,
     attestation: options.attestation,
     extensions: options.extensions,
@@ -215,11 +203,7 @@ export function toRequestOptionsJSON(
     challenge: encodeBase64Url(options.challenge),
     timeout: options.timeout,
     rpId: options.rpId,
-    allowCredentials: options.allowCredentials?.map((cred) => ({
-      id: encodeBase64Url(cred.id),
-      type: cred.type,
-      transports: cred.transports,
-    })),
+    allowCredentials: options.allowCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     userVerification: options.userVerification,
     extensions: options.extensions,
   };
@@ -259,6 +243,38 @@ export function parseAuthenticationResponseFromJSON(options: AuthenticationRespo
     toJSON: () => options,
     type: options.type,
   };
+}
+
+export function toPublicKeyCredentialDescriptorJSON(
+  credential: PublicKeyCredentialDescriptor,
+): PublicKeyCredentialDescriptorJSON {
+  return {
+    id: encodeBase64Url(credential.id),
+    type: credential.type,
+    transports: credential.transports,
+  };
+}
+
+export function parsePublicKeyCredentialDescriptorFromJSON(
+  credential: PublicKeyCredentialDescriptorJSON,
+): PublicKeyCredentialDescriptor {
+  return {
+    id: decodeBase64Url(credential.id),
+    type: credential.type as PublicKeyCredentialType,
+    transports: credential.transports as AuthenticatorTransport[],
+  };
+}
+
+export function toPublicKeyCredentialUserEntityJSON(
+  user: PublicKeyCredentialUserEntity,
+): PublicKeyCredentialUserEntityJSON {
+  return { ...user, id: encodeBase64Url(user.id) };
+}
+
+export function parsePublicKeyCredentialUserEntityFromJSON(
+  user: PublicKeyCredentialUserEntityJSON,
+): PublicKeyCredentialUserEntity {
+  return { ...user, id: decodeBase64Url(user.id) };
 }
 
 // Helper functions

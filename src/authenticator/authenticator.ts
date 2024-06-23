@@ -1,7 +1,8 @@
 import { createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
-import type { PasskeyCredential } from "../emulators/passkeys-credential";
 import { CoseKey } from "../libs/cose-key";
 import EncodeUtils from "../libs/encode-utils";
+import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
+import type { PasskeyCredential, PasskeysCredentialsRepository } from "../repository/credentials-repository";
 import {
   type AuthenticatorData,
   type PublicKeyCredentialSource,
@@ -56,6 +57,7 @@ export type AuthenticatorParameters = {
     user: PublicKeyCredentialUserEntity | undefined,
     options?: Partial<AuthenticatorOptions>,
   ) => InteractionResponse | undefined;
+  readonly credentialsRepository: PasskeysCredentialsRepository;
 };
 
 export type MakeCredentialInteraction = (user: PublicKeyCredentialUserEntity, uv: boolean) => boolean;
@@ -85,7 +87,7 @@ export class AuthenticatorEmulator {
     options: { uv: true, up: true },
   });
 
-  public credentials: PasskeyCredential[] = [];
+  private static readonly DEFAULT_CREDENTIALS_REPOSITORY = new PasskeysCredentialsMemoryRepository();
   public params: AuthenticatorParameters;
 
   constructor(params: Partial<AuthenticatorParameters> = {}) {
@@ -99,6 +101,7 @@ export class AuthenticatorEmulator {
         params.userMakeCredentialInteraction ?? AuthenticatorEmulator.DEFAULT_MAKE_CREDENTIAL_INTERACTION,
       userGetAssertionInteraction:
         params.userGetAssertionInteraction ?? AuthenticatorEmulator.DEFAULT_GET_ASSERTION_INTERACTION,
+      credentialsRepository: params.credentialsRepository ?? AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY,
     };
   }
 
@@ -193,35 +196,36 @@ export class AuthenticatorEmulator {
       authData,
       signature,
       user: interactionResponse.user,
-      numberOfCredentials: this.credentials.length,
+      numberOfCredentials: credentials.length,
     };
   }
 
   private getCredentials(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential[] {
-    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.bufferSourceToBase64Url(descriptor.id)));
-    return this.credentials.filter((credential) => {
+    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.encodeBase64Url(descriptor.id)));
+    const credentials = this.params.credentialsRepository.loadCredentials();
+    return credentials.filter((credential) => {
       if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
       if (credentialsFilter.length > 0) {
         const rawId = credential.publicKeyCredentialDescriptor.id;
-        if (!allowIds?.has(EncodeUtils.bufferSourceToBase64Url(rawId))) return false;
+        if (!allowIds?.has(EncodeUtils.encodeBase64Url(rawId))) return false;
       }
       return true;
     });
   }
 
   private addCredential(credential: PasskeyCredential, rk: boolean): void {
+    const credentials = this.params.credentialsRepository.loadCredentials();
     if (rk) {
-      const index = this.credentials.findIndex((c) => {
+      const index = credentials.findIndex((c) => {
         if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
         if (c.user?.id && credential.user?.id && c.user.id === credential.user.id) return true;
         return false;
       });
       if (index >= 0) {
-        this.credentials[index] = credential;
-        return;
+        this.params.credentialsRepository.deleteCredential(credentials[index]);
       }
     }
-    this.credentials.push(credential);
+    this.params.credentialsRepository.saveCredential(credential);
   }
 }
 

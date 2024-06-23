@@ -81,7 +81,7 @@ export class WebAuthnEmulator {
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
-      challenge: EncodeUtils.bufferSourceToBase64Url(options.publicKey.challenge),
+      challenge: EncodeUtils.encodeBase64Url(options.publicKey.challenge),
       origin,
       crossOrigin: false,
     };
@@ -124,7 +124,7 @@ export class WebAuthnEmulator {
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
-      challenge: EncodeUtils.bufferSourceToBase64Url(options.publicKey.challenge),
+      challenge: EncodeUtils.encodeBase64Url(options.publicKey.challenge),
       origin,
       type: "webauthn.create",
       crossOrigin: false,
