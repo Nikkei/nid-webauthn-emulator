@@ -46,7 +46,7 @@ export interface PasskeysCredentialsRepository {
  * @param credential Credential
  */
 export function getRepositoryId(credential: PasskeyCredential): string {
-  return EncodeUtils.bufferSourceToBase64Url(credential.publicKeyCredentialDescriptor.id);
+  return EncodeUtils.encodeBase64Url(credential.publicKeyCredentialDescriptor.id);
 }
 
 /**
@@ -58,7 +58,7 @@ export function serializeCredential(credential: PasskeyCredential): string {
   const serialized = {
     publicKeyCredentialDescriptor: toPublicKeyCredentialDescriptorJSON(credential.publicKeyCredentialDescriptor),
     publicKeyCredentialSource: toPublickeyCredentialSourceJSON(credential.publicKeyCredentialSource),
-    authenticatorData: EncodeUtils.bufferSourceToBase64Url(packAuthenticatorData(credential.authenticatorData)),
+    authenticatorData: EncodeUtils.encodeBase64Url(packAuthenticatorData(credential.authenticatorData)),
     user: credential.user ? toPublicKeyCredentialUserEntityJSON(credential.user) : undefined,
   };
   return JSON.stringify(serialized, null, 2);

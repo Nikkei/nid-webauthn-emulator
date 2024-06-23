@@ -1,10 +1,7 @@
 import cbor from "cbor";
 
-function strToUint8Array(data: string): Uint8Array {
-  return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
-}
-
-function encodeBase64Url(buffer: Uint8Array): string {
+function encodeBase64Url(data: BufferSource): string {
+  const buffer = bufferSourceToUint8Array(data);
   let binaryString = "";
   for (let i = 0; i < buffer.length; i++) {
     binaryString += String.fromCharCode(buffer[i]);
@@ -28,8 +25,8 @@ function bufferSourceToUint8Array(data: BufferSource): Uint8Array {
   return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
 }
 
-function bufferSourceToBase64Url(data: BufferSource): string {
-  return encodeBase64Url(bufferSourceToUint8Array(data));
+function strToUint8Array(data: string): Uint8Array {
+  return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
 }
 
 function encodeCbor(data: Map<unknown, unknown>): Uint8Array {
@@ -53,7 +50,6 @@ function decodeCbor<T>(data: Uint8Array): T {
 const EncodeUtils = {
   strToUint8Array,
   bufferSourceToUint8Array,
-  bufferSourceToBase64Url,
   encodeBase64Url,
   decodeBase64Url,
   encodeCbor,
