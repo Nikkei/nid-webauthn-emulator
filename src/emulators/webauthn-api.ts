@@ -13,6 +13,7 @@ import {
 } from "../webauthn/webauthn-model-json";
 import { AuthenticatorEmulator } from "./authenticator";
 
+import { createHash } from "node:crypto";
 import {
   type AttestationObject,
   type AttestedCredentialData,
@@ -20,6 +21,7 @@ import {
   RpId,
   packAttestationObject,
   packAuthenticatorData,
+  unpackAuthenticatorData,
 } from "../webauthn/webauthn-model";
 
 /**
@@ -48,24 +50,31 @@ export class WebAuthnApiEmulator {
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
-      challenge: EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(options.publicKey.challenge)),
+      challenge: EncodeUtils.bufferSourceToBase64Url(options.publicKey.challenge),
       origin,
       crossOrigin: false,
     };
-    const signResponse = this.authenticator.sign(rpId, clientData, options.publicKey.allowCredentials ?? []);
 
-    const authData = signResponse.authenticatorData;
-    const id = EncodeUtils.bufferSourceToUint8Array(signResponse.publicKeyCredentialDescriptor.id);
+    const authenticatorResponse = this.authenticator.authenticatorGetAssertion({
+      rpId: rpId.value,
+      clientDataHash: createHash("sha256").update(JSON.stringify(clientData)).digest(),
+      allowList: options.publicKey.allowCredentials,
+    });
+
+    const responseId = authenticatorResponse.credential?.id ?? options.publicKey.allowCredentials?.[0]?.id;
+    if (!responseId) throw new Error("No credential ID found");
+    const authData = unpackAuthenticatorData(authenticatorResponse.authData);
+    const rawId = EncodeUtils.bufferSourceToUint8Array(responseId);
 
     const publicKeyCredential: RequestPublicKeyCredential = {
-      id: EncodeUtils.encodeBase64Url(id),
+      id: EncodeUtils.encodeBase64Url(rawId),
       type: "public-key",
-      rawId: id,
+      rawId,
       response: {
         clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
         authenticatorData: packAuthenticatorData(authData),
-        signature: signResponse.signature,
-        userHandle: signResponse.userHandle ?? null,
+        signature: authenticatorResponse.signature,
+        userHandle: EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id),
       },
       authenticatorAttachment: null,
       getClientExtensionResults: () => ({ credProps: { rk: true } }),
@@ -82,14 +91,23 @@ export class WebAuthnApiEmulator {
     const rpId = new RpId(options.publicKey.rp.id ?? "");
     if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
-    const credential = this.authenticator.generateCredential(
-      rpId,
-      options.publicKey.pubKeyCredParams,
-      options.publicKey.excludeCredentials ?? [],
-      EncodeUtils.bufferSourceToUint8Array(options.publicKey.user.id),
-    );
+    const clientData: CollectedClientData = {
+      challenge: EncodeUtils.bufferSourceToBase64Url(options.publicKey.challenge),
+      origin,
+      type: "webauthn.create",
+      crossOrigin: false,
+    };
+    const clientDataJSON = JSON.stringify(clientData);
 
-    const authData = credential.authenticatorData;
+    const authenticatorResponse = this.authenticator.authenticatorMakeCredential({
+      clientDataHash: createHash("sha256").update(clientDataJSON).digest(),
+      rp: options.publicKey.rp,
+      user: options.publicKey.user,
+      pubKeyCredParams: options.publicKey.pubKeyCredParams,
+      excludeList: options.publicKey.excludeCredentials,
+    });
+
+    const authData = unpackAuthenticatorData(authenticatorResponse.authData);
     const attestedCredentialData = authData.attestedCredentialData as AttestedCredentialData;
 
     const attestationObject: AttestationObject = {
@@ -98,21 +116,14 @@ export class WebAuthnApiEmulator {
       authData,
     };
 
-    const clientData: CollectedClientData = {
-      challenge: EncodeUtils.encodeBase64Url(EncodeUtils.bufferSourceToUint8Array(options.publicKey.challenge)),
-      origin,
-      type: "webauthn.create",
-      crossOrigin: false,
-    };
-
     const response: AuthenticatorAttestationResponse = {
       attestationObject: packAttestationObject(attestationObject),
-      clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
+      clientDataJSON: EncodeUtils.strToUint8Array(clientDataJSON),
 
       getAuthenticatorData: () => packAuthenticatorData(authData),
       getPublicKey: () => attestedCredentialData.credentialPublicKey.toDer(),
       getPublicKeyAlgorithm: () => attestedCredentialData.credentialPublicKey.alg,
-      getTransports: () => credential.publicKeyCredentialDescriptor.transports ?? [],
+      getTransports: () => this.authenticator.params.transports,
     };
 
     const publicKeyCredential: CreatePublicKeyCredential = {
