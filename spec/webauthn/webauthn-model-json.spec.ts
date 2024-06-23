@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
 import EncodeUtils from "../../src/libs/encode-utils";
-import { WebAuthnApiEmulator } from "../../src/webauthn/webauthn-api";
+import { WebAuthnEmulator } from "../../src/webauthn/webauthn-api";
 import {
   parseAuthenticationResponseFromJSON,
   parseCreationOptionsFromJSON,
@@ -28,7 +28,7 @@ describe("WebAuthn JSON Model Test", () => {
     userVerification: "required",
   };
 
-  const emulator = new WebAuthnApiEmulator();
+  const emulator = new WebAuthnEmulator();
 
   test("Create Option JSON Serialize Deserialize test", async () => {
     const json = toCreationOptionsJSON(creationOption);

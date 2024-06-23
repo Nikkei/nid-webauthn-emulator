@@ -11,6 +11,7 @@ import {
 import {
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
+  type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
   type AuthenticatorOptions,
@@ -20,6 +21,7 @@ import {
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
   packGetAssertionResponse,
+  packGetInfoResponse,
   packMakeCredentialResponse,
   unpackRequest,
 } from "./ctap-model";
@@ -68,9 +70,8 @@ export class AuthenticatorEmulator {
     displayName: "Anonymous NID Authenticator User",
   };
 
-  private static readonly DEFAULT_AAGUID = new Uint8Array([
-    0x8e, 0xdf, 0xb6, 0xbb, 0x40, 0x13, 0xc4, 0xa4, 0x6c, 0x96, 0xb9, 0x63, 0x40, 0x13, 0x81, 0x3f,
-  ]);
+  /** Authenticator Attestation Global Unique Identifier (16byte)  */
+  private static readonly DEFAULT_AAGUID = EncodeUtils.strToUint8Array("NID-AUTH-3141592");
   private static readonly DEFAULT_TRANSPORTS: AuthenticatorTransport[] = ["usb"] as const;
   private static readonly DEFAULT_ALGORITHM_IDENTIFIERS = ["ES256", "RS256", "EdDSA"] as const;
   private static readonly DEFAULT_SIGN_COUNTER_INCREMENT = 1;
@@ -115,7 +116,24 @@ export class AuthenticatorEmulator {
       const getAssertionResponse = this.authenticatorGetAssertion(getAssertionRequest);
       return packGetAssertionResponse(getAssertionResponse);
     }
+
+    if (unpackedRequest.command === CTAP_COMMAND.authenticatorGetInfo) {
+      return packGetInfoResponse(this.authenticatorGetInfo());
+    }
     throw new CTAPError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+  }
+
+  /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetInfo */
+  public authenticatorGetInfo(): AuthenticatorGetInfoResponse {
+    return {
+      versions: ["FIDO_2_0"],
+      aaguid: this.params.aaguid,
+      options: {
+        rk: true,
+        uv: this.params.verifications.userVerified,
+        up: this.params.verifications.userPresent,
+      },
+    };
   }
 
   /** @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred */
@@ -145,7 +163,7 @@ export class AuthenticatorEmulator {
     return {
       fmt: "packed",
       authData: packAuthenticatorData(credential.authenticatorData),
-      attStmt: new Map(),
+      attStmt: {},
     };
   }
 
