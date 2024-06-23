@@ -13,7 +13,7 @@ export interface AuthenticatorMakeCredentialRequest {
   user: PublicKeyCredentialUserEntity;
   pubKeyCredParams: PublicKeyCredentialParameters[];
   excludeList?: PublicKeyCredentialDescriptor[];
-  extensions?: Map<string, unknown>;
+  extensions?: object;
   options?: Partial<AuthenticatorOptions>;
   pinAuth?: Uint8Array;
   pinProtocol?: number;
@@ -23,7 +23,7 @@ export interface AuthenticatorMakeCredentialRequest {
 export interface AuthenticatorMakeCredentialResponse {
   fmt: string;
   authData: Uint8Array;
-  attStmt: Map<string, unknown>;
+  attStmt: object;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorGetAssertion */
@@ -31,7 +31,7 @@ export interface AuthenticatorGetAssertionRequest {
   rpId: string;
   clientDataHash: Uint8Array;
   allowList?: PublicKeyCredentialDescriptor[];
-  extensions?: Map<string, unknown>;
+  extensions?: object;
   options?: Partial<AuthenticatorOptions>;
   pinAuth?: Uint8Array;
   pinProtocol?: number;
@@ -99,15 +99,15 @@ export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTA
     return {
       command: request.command,
       request: {
-        clientDataHash: data.get(0x01) as Uint8Array,
+        clientDataHash: EncodeUtils.bufferSourceToUint8Array(data.get(0x01) as BufferSource),
         rp: data.get(0x02) as PublicKeyCredentialRpEntity,
         user: data.get(0x03) as PublicKeyCredentialUserEntity,
         pubKeyCredParams: data.get(0x04) as PublicKeyCredentialParameters[],
-        excludeList: data.get(0x05) as PublicKeyCredentialDescriptor[],
-        extensions: data.get(0x06) as Map<string, unknown>,
-        options: data.get(0x07) as { rk?: boolean; uv?: boolean },
-        pinAuth: data.get(0x08) as Uint8Array,
-        pinProtocol: data.get(0x09) as number,
+        excludeList: data.get(0x05) as PublicKeyCredentialDescriptor[] | undefined,
+        extensions: data.get(0x06) as object | undefined,
+        options: data.get(0x07) as { rk?: boolean; uv?: boolean } | undefined,
+        pinAuth: data.get(0x08) ? EncodeUtils.bufferSourceToUint8Array(data.get(0x08) as BufferSource) : undefined,
+        pinProtocol: data.get(0x09) as number | undefined,
       } as AuthenticatorMakeCredentialRequest,
     };
   }
@@ -116,12 +116,12 @@ export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTA
       command: request.command,
       request: {
         rpId: data.get(0x01) as string,
-        clientDataHash: data.get(0x02) as Uint8Array,
-        allowList: data.get(0x03) as PublicKeyCredentialDescriptor[],
-        extensions: data.get(0x04) as Map<string, unknown>,
-        options: data.get(0x05) as { up?: boolean; uv?: boolean },
-        pinAuth: data.get(0x06) as Uint8Array,
-        pinProtocol: data.get(0x07) as number,
+        clientDataHash: EncodeUtils.bufferSourceToUint8Array(data.get(0x02) as BufferSource),
+        allowList: data.get(0x03) as PublicKeyCredentialDescriptor[] | undefined,
+        extensions: data.get(0x04) as object | undefined,
+        options: data.get(0x05) as { up?: boolean; uv?: boolean } | undefined,
+        pinAuth: data.get(0x08) ? EncodeUtils.bufferSourceToUint8Array(data.get(0x06) as BufferSource) : undefined,
+        pinProtocol: data.get(0x07) as number | undefined,
       } as AuthenticatorGetAssertionRequest,
     };
   }
@@ -172,8 +172,8 @@ export function unpackMakeCredentialResponse(response: CTAPAuthenticatorResponse
     const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Map<number, unknown>;
     return {
       fmt: data.get(0x01) as string,
-      authData: data.get(0x02) as Uint8Array,
-      attStmt: data.get(0x03) as Map<string, unknown>,
+      authData: EncodeUtils.bufferSourceToUint8Array(data.get(0x02) as BufferSource),
+      attStmt: data.get(0x03) as object,
     };
   } catch (error) {
     throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
@@ -197,9 +197,9 @@ export function unpackGetAssertionResponse(response: CTAPAuthenticatorResponse):
   try {
     const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Map<number, unknown>;
     return {
-      credential: data.get(0x01) as PublicKeyCredentialDescriptor,
-      authData: data.get(0x02) as Uint8Array,
-      signature: data.get(0x03) as Uint8Array,
+      credential: data.get(0x01) as PublicKeyCredentialDescriptor | undefined,
+      authData: EncodeUtils.bufferSourceToUint8Array(data.get(0x02) as BufferSource),
+      signature: EncodeUtils.bufferSourceToUint8Array(data.get(0x03) as BufferSource),
       user: data.get(0x04) as PublicKeyCredentialUserEntity,
       numberOfCredentials: data.get(0x05) as number,
     };

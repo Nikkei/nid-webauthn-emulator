@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { parse } from "tldts";
+import { CoseKey } from "../libs/cose-key";
 import EncodeUtils from "../libs/encode-utils";
-import { CoseKey } from "./cose-key";
 
 export class RpId {
   constructor(public readonly value: string) {}
