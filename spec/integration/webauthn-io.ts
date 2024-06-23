@@ -10,7 +10,11 @@ import type { PasskeysApiClient } from "./passkeys-api-client";
  * Passkeys Api Client implementation for webauthn.io
  */
 export class WebAuthnIO implements PasskeysApiClient {
-  private constructor(private sessionId: string) {}
+  private readonly userName: string;
+  private constructor(private sessionId: string) {
+    // generate random user name
+    this.userName = `test-user-${Math.random().toString(36).slice(-8)}`;
+  }
 
   public static async create(): Promise<WebAuthnIO> {
     const sessionId = await WebAuthnIO.getSessionId();
@@ -23,7 +27,7 @@ export class WebAuthnIO implements PasskeysApiClient {
    */
   public async getRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const optionsRequest = {
-      username: "test-user",
+      username: this.userName,
       user_verification: "preferred",
       attestation: "none",
       attachment: "all",
@@ -48,7 +52,7 @@ export class WebAuthnIO implements PasskeysApiClient {
   public async getRegistrationVerification(response: RegistrationResponseJSON): Promise<void> {
     const verificationRequest = {
       response: response,
-      username: "test-user",
+      username: this.userName,
     };
 
     const verification = await fetch("https://webauthn.io/registration/verification", {

@@ -15,9 +15,11 @@ import {
 
 import { createHash } from "node:crypto";
 import {
+  CTAP_COMMAND,
   packGetAssertionRequest,
   packMakeCredentialRequest,
   unpackGetAssertionResponse,
+  unpackGetInfoResponse,
   unpackMakeCredentialResponse,
 } from "../authenticator/ctap-model";
 import {
@@ -30,10 +32,19 @@ import {
   unpackAuthenticatorData,
 } from "./webauthn-model";
 
+export type AuthenticatorInfo = {
+  version: string;
+  aaguid: string;
+  options: {
+    rk: boolean;
+    uv: boolean;
+  };
+};
+
 /**
- * WebAuthn API emulator
+ * WebAuthn emulator
  */
-export class WebAuthnApiEmulator {
+export class WebAuthnEmulator {
   constructor(public authenticator: AuthenticatorEmulator = new AuthenticatorEmulator()) {}
 
   public getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
@@ -46,6 +57,20 @@ export class WebAuthnApiEmulator {
     const options = parseCreationOptionsFromJSON(optionsJSON);
     const response = this.create(origin, { publicKey: options });
     return toRegistrationResponseJSON(response);
+  }
+
+  public getAuthenticatorInfo(): AuthenticatorInfo {
+    const authenticatorInfo = unpackGetInfoResponse(
+      this.authenticator.command({ command: CTAP_COMMAND.authenticatorGetInfo }),
+    );
+    return {
+      version: authenticatorInfo.versions.join(", "),
+      aaguid: EncodeUtils.encodeBase64Url(authenticatorInfo.aaguid),
+      options: {
+        rk: authenticatorInfo.options?.rk ?? false,
+        uv: authenticatorInfo.options?.uv ?? false,
+      },
+    };
   }
 
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */

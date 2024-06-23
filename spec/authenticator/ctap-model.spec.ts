@@ -2,12 +2,15 @@ import { describe, test } from "@jest/globals";
 import { expect } from "@jest/globals";
 import {
   type AuthenticatorGetAssertionResponse,
+  type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
   packGetAssertionResponse,
+  packGetInfoResponse,
   packMakeCredentialRequest,
   packMakeCredentialResponse,
   unpackGetAssertionResponse,
+  unpackGetInfoResponse,
   unpackMakeCredentialResponse,
   unpackRequest,
 } from "../../src/authenticator/ctap-model";
@@ -81,6 +84,24 @@ describe("CTAP Model Test", () => {
     const packed = packGetAssertionResponse(testResponse);
     const unpacked = unpackGetAssertionResponse(packed);
     const rePacked = packGetAssertionResponse(unpacked);
+
+    expect(packed).toEqual(rePacked);
+    expect(unpacked).toEqual(testResponse);
+  });
+
+  test("GetInfoResponse CTAP Object pack and unpack", async () => {
+    const testResponse: AuthenticatorGetInfoResponse = {
+      versions: ["U2F_V2"],
+      extensions: ["credProtect"],
+      aaguid: new Uint8Array([97, 97, 103, 117, 105, 100]),
+      options: { plat: false, rk: true, clientPin: true, up: true, uv: true },
+      maxMsgSize: 1200,
+      pinProtocols: [1, 2, 3],
+    };
+
+    const packed = packGetInfoResponse(testResponse);
+    const unpacked = unpackGetInfoResponse(packed);
+    const rePacked = packGetInfoResponse(unpacked);
 
     expect(packed).toEqual(rePacked);
     expect(unpacked).toEqual(testResponse);

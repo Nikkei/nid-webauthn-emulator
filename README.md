@@ -10,12 +10,12 @@
 ## 使用方法
 
 ```TypeScript
-import { WebAuthnApiEmulator } from "./emulators/webauthn-api";
+import { WebAuthnEmulator } from "./emulators/webauthn-api";
 
-const webAuthnApiEmulator = new WebAuthnApiEmulator();
+const WebAuthnEmulator = new WebAuthnEmulator();
 
-webAuthnApiEmulator.create(origin, creationOptions);
-webAuthnApiEmulator.get(origin, requestOptions);
+WebAuthnEmulator.create(origin, creationOptions);
+WebAuthnEmulator.get(origin, requestOptions);
 ```
 
 ## 実行例
@@ -26,32 +26,26 @@ webAuthnApiEmulator.get(origin, requestOptions);
 // Origin および WebAuthn API エミュレータを初期化します
 // ここでは、https://webauthn.io を Origin として利用します
 const origin = "https://webauthn.io";
-const webAuthnApiEmulator = new WebAuthnApiEmulator();
+const emulator = new WebAuthnEmulator();
 const webauthnIO = await WebAuthnIO.create();
 
 // 登録用の Options を webauthn.io から取得します
-const creationOptions = { publicKey: parseCreationOptionsFromJSON(await webauthnIO.getRegistrationOptions()) };
-console.log("Registration options", creationOptions);
+console.log("Authenticator Information", emulator.getAuthenticatorInfo());
 
 // WebAuthn API Emulator により パスキーを作成します
-const creationCredential = await webAuthnApiEmulator.create(origin, creationOptions);
-console.log("Registration credential", creationCredential.toJSON());
-
-// パスキーの登録を webauthn.io に通知します
-await webauthnIO.getRegistrationVerification(creationCredential.toJSON());
+const creationOptions = await webauthnIO.getRegistrationOptions();
+console.log("Registration options", creationOptions);
+const creationCredential = emulator.createJSON(origin, creationOptions);
+console.log("Registration credential", creationCredential);
+await webauthnIO.getRegistrationVerification(creationCredential);
 console.log("Registration verification completed");
 
-// 認証用の Options を webauthn.io から取得します
-const requestOptions = { publicKey: parseRequestOptionsFromJSON(await webauthnIO.getAuthenticationOptions()) };
-console.log("Authentication options", requestOptions);
-
-// WebAuthn API Emulator により 先ほど登録したパスキーで認証します
-// 選択されるパスキーは、登録時に作成したパスキーと同じです
-const requestCredential = await webAuthnApiEmulator.get(origin, requestOptions);
-console.log("Authentication credential", requestCredential.toJSON());
-
 // 認証を webauthn.io で検証します
-await webauthnIO.getAuthenticationVerification(requestCredential.toJSON());
+const requestOptions = await webauthnIO.getAuthenticationOptions();
+console.log("Authentication options", requestOptions);
+const requestCredential = emulator.getJSON(origin, requestOptions);
+console.log("Authentication credential", requestCredential);
+await webauthnIO.getAuthenticationVerification(requestCredential);
 console.log("Authentication verification completed");
 ```
 
@@ -60,10 +54,10 @@ console.log("Authentication verification completed");
 Playwright の `exposeFunction` を利用して、WebAuthn API エミュレータを利用することができます。使い方は下記の通りです。
 
 ```TypeScript
-import WebAuthnApiEmulator, { BrowserInjection } from "@nikkei/nid-webauthn-emulator";
+import WebAuthnEmulator, { BrowserInjection } from "@nikkei/nid-webauthn-emulator";
 
 async function startWebAuthnEmulator(page: Page, origin: string, debug = false) {
-  const emulator = new WebAuthnApiEmulator();
+  const emulator = new WebAuthnEmulator();
 
   await page.exposeFunction(
     BrowserInjection.WebAuthnEmulatorCreate,
