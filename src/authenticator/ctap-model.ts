@@ -46,6 +46,16 @@ export interface AuthenticatorGetAssertionResponse {
   numberOfCredentials: number;
 }
 
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetInfo */
+export type AuthenticatorGetInfoResponse = {
+  versions: string[];
+  extensions?: string[];
+  aaguid: Uint8Array;
+  options?: Partial<AuthenticatorOptions> & { plat?: boolean; clientPin?: boolean };
+  maxMsgSize?: number;
+  pinProtocols?: number[];
+};
+
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#error-responses */
 export enum CTAP_STATUS_CODE {
   CTAP2_OK = 0x00,
@@ -94,7 +104,9 @@ export class CTAPError extends Error {
 }
 
 export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTAP_COMMAND; request: unknown } {
-  const data = EncodeUtils.decodeCbor(request.data as Uint8Array) as Map<number, unknown>;
+  const data = request.data
+    ? (EncodeUtils.decodeCbor(request.data) as Map<number, unknown>)
+    : new Map<number, unknown>();
   if (request.command === CTAP_COMMAND.authenticatorMakeCredential) {
     return {
       command: request.command,
@@ -123,6 +135,12 @@ export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTA
         pinAuth: data.get(0x08) ? EncodeUtils.bufferSourceToUint8Array(data.get(0x06) as BufferSource) : undefined,
         pinProtocol: data.get(0x07) as number | undefined,
       } as AuthenticatorGetAssertionRequest,
+    };
+  }
+  if (request.command === CTAP_COMMAND.authenticatorGetInfo) {
+    return {
+      command: request.command,
+      request: undefined,
     };
   }
   for (const value of Object.values(CTAP_COMMAND)) {
@@ -221,6 +239,42 @@ export function packGetAssertionResponse(response: AuthenticatorGetAssertionResp
           [0x05, response.numberOfCredentials],
         ]),
       ),
+    };
+  } catch (error) {
+    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
+}
+
+export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTAPAuthenticatorResponse {
+  try {
+    return {
+      status: CTAP_STATUS_CODE.CTAP2_OK,
+      data: EncodeUtils.encodeCbor(
+        new Map<number, unknown>([
+          [0x01, response.versions],
+          [0x02, response.extensions],
+          [0x03, response.aaguid],
+          [0x04, response.options],
+          [0x05, response.maxMsgSize],
+          [0x06, response.pinProtocols],
+        ]),
+      ),
+    };
+  } catch (error) {
+    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
+}
+
+export function unpackGetInfoResponse(response: CTAPAuthenticatorResponse): AuthenticatorGetInfoResponse {
+  try {
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Map<number, unknown>;
+    return {
+      versions: data.get(0x01) as string[],
+      extensions: data.get(0x02) as string[] | undefined,
+      aaguid: EncodeUtils.bufferSourceToUint8Array(data.get(0x03) as BufferSource),
+      options: data.get(0x04) as AuthenticatorOptions | undefined,
+      maxMsgSize: data.get(0x05) as number | undefined,
+      pinProtocols: data.get(0x06) as number[] | undefined,
     };
   } catch (error) {
     throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });

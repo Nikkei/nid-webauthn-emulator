@@ -1,7 +1,7 @@
 import { HookWebAuthnApis, WebAuthnEmulatorCreate, WebAuthnEmulatorGet } from "./libs/browser-injection";
-import { WebAuthnApiEmulator } from "./webauthn/webauthn-api";
+import { WebAuthnEmulator } from "./webauthn/webauthn-api";
 
-export default WebAuthnApiEmulator;
+export default WebAuthnEmulator;
 
 export const BrowserInjection = {
   WebAuthnEmulatorGet,

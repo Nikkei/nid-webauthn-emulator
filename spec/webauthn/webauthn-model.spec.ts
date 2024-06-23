@@ -1,10 +1,10 @@
 import { describe, expect, test } from "@jest/globals";
 import EncodeUtils from "../../src/libs/encode-utils";
-import { WebAuthnApiEmulator } from "../../src/webauthn/webauthn-api";
+import { WebAuthnEmulator } from "../../src/webauthn/webauthn-api";
 import { packAttestationObject, unpackAttestationObject } from "../../src/webauthn/webauthn-model";
 
 describe("WebAuthn Model Test", () => {
-  const webauthnEmulator = new WebAuthnApiEmulator();
+  const webauthnEmulator = new WebAuthnEmulator();
   test("Attestation Object pack and unpack", async () => {
     const createResponse = webauthnEmulator.create("https://webauthn.io", {
       publicKey: {
