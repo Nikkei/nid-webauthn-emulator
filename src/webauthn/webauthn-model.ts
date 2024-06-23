@@ -159,3 +159,33 @@ function unpackAuthenticatorDataFlags(flags: number): AuthenticatorData["flags"]
     extensionData: Boolean(flags & (1 << 7)),
   };
 }
+
+export type PublicKeyCredentialSourceJSON = {
+  type: "public-key";
+  id: string;
+  privateKey: string;
+  rpId: string;
+  userHandle?: string;
+};
+
+export function toPublickeyCredentialSourceJSON(
+  credentialSource: PublicKeyCredentialSource,
+): PublicKeyCredentialSourceJSON {
+  return {
+    type: "public-key",
+    id: EncodeUtils.encodeBase64Url(credentialSource.id),
+    privateKey: EncodeUtils.encodeBase64Url(credentialSource.privateKey),
+    rpId: credentialSource.rpId.value,
+    userHandle: credentialSource.userHandle ? EncodeUtils.encodeBase64Url(credentialSource.userHandle) : undefined,
+  };
+}
+
+export function parsePublicKeyCredentialSourceFromJSON(json: PublicKeyCredentialSourceJSON): PublicKeyCredentialSource {
+  return {
+    type: "public-key",
+    id: EncodeUtils.decodeBase64Url(json.id),
+    privateKey: EncodeUtils.decodeBase64Url(json.privateKey),
+    rpId: new RpId(json.rpId),
+    userHandle: json.userHandle ? EncodeUtils.decodeBase64Url(json.userHandle) : undefined,
+  };
+}
