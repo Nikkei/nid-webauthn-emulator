@@ -1,22 +1,17 @@
-import {
-  decodeBase64Url,
-  encodeBase64Url,
-  parseAuthenticationResponseFromJSON,
-  parseRegistrationResponseFromJSON,
-  toCreationOptionsJSON,
-  toRequestOptionsJSON,
-} from "../webauthn/webauthn-model-json";
+import * as Model from "../webauthn/webauthn-model-json";
 
 export const WebAuthnEmulatorGet = "webAuthnEmulatorGet";
 export const WebAuthnEmulatorCreate = "webAuthnEmulatorCreate";
 export const HookWebAuthnApis = `
 (function () {
-  ${encodeBase64Url.toString()}
-  ${decodeBase64Url.toString()}
-  ${toCreationOptionsJSON.toString()}
-  ${parseRegistrationResponseFromJSON.toString()}
-  ${toRequestOptionsJSON.toString()}
-  ${parseAuthenticationResponseFromJSON.toString()}
+  ${Model.encodeBase64Url.toString()}
+  ${Model.decodeBase64Url.toString()}
+  ${Model.toPublicKeyCredentialUserEntityJSON.toString()}
+  ${Model.toPublicKeyCredentialDescriptorJSON.toString()}
+  ${Model.toCreationOptionsJSON.toString()}
+  ${Model.toRequestOptionsJSON.toString()}
+  ${Model.parseRegistrationResponseFromJSON.toString()}
+  ${Model.parseAuthenticationResponseFromJSON.toString()}
 
   window.navigator.credentials.create = async (options) => {
     if (!options.publicKey) return undefined;
