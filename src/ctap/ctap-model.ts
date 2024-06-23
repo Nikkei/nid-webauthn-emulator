@@ -1,3 +1,11 @@
+import EncodeUtils from "../libs/encode-utils";
+
+export type AuthenticatorOptions = {
+  rk: boolean;
+  uv: boolean;
+  up: boolean;
+};
+
 /** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialRequest {
   clientDataHash: Uint8Array;
@@ -6,7 +14,7 @@ export interface AuthenticatorMakeCredentialRequest {
   pubKeyCredParams: PublicKeyCredentialParameters[];
   excludeList?: PublicKeyCredentialDescriptor[];
   extensions?: Map<string, unknown>;
-  options?: Map<string, unknown>;
+  options?: Partial<AuthenticatorOptions>;
   pinAuth?: Uint8Array;
   pinProtocol?: number;
 }
@@ -24,7 +32,7 @@ export interface AuthenticatorGetAssertionRequest {
   clientDataHash: Uint8Array;
   allowList?: PublicKeyCredentialDescriptor[];
   extensions?: Map<string, unknown>;
-  options?: Map<string, unknown>;
+  options?: Partial<AuthenticatorOptions>;
   pinAuth?: Uint8Array;
   pinProtocol?: number;
 }
@@ -36,4 +44,185 @@ export interface AuthenticatorGetAssertionResponse {
   signature: Uint8Array;
   user: PublicKeyCredentialUserEntity;
   numberOfCredentials: number;
+}
+
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#error-responses */
+export enum CTAP_STATUS_CODE {
+  CTAP2_OK = 0x00,
+  CTAP1_ERR_INVALID_COMMAND = 0x01,
+  CTAP1_ERR_INVALID_PARAMETER = 0x02,
+  CTAP2_ERR_INVALID_CBOR = 0x12,
+  CTAP2_ERR_CREDENTIAL_EXCLUDED = 0x19,
+  CTAP2_ERR_UNSUPPORTED_ALGORITHM = 0x26,
+  CTAP2_ERR_OPERATION_DENIED = 0x27,
+  CTAP2_ERR_NO_CREDENTIALS = 0x2d,
+  CTAP2_ERR_NOT_ALLOWED = 0x30,
+}
+
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#commands */
+export enum CTAP_COMMAND {
+  authenticatorMakeCredential = 0x01,
+  authenticatorGetAssertion = 0x02,
+  authenticatorGetInfo = 0x04,
+  authenticatorClientPIN = 0x06,
+  authenticatorReset = 0x07,
+  authenticatorGetNextAssertion = 0x08,
+}
+
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#responses */
+export interface CTAPAuthenticatorResponse {
+  status: CTAP_STATUS_CODE;
+  data?: Uint8Array;
+}
+
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#commands */
+export interface CTAPAuthenticatorRequest {
+  command: CTAP_COMMAND;
+  data?: Uint8Array;
+}
+
+// Not standard functions and interfaces
+
+export class CTAPError extends Error {
+  public type = "CTAPError";
+  constructor(
+    public status: CTAP_STATUS_CODE,
+    options?: ErrorOptions,
+  ) {
+    super(`CTAP error: ${CTAP_STATUS_CODE[status]} (${status})`, options);
+  }
+}
+
+export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTAP_COMMAND; request: unknown } {
+  const data = EncodeUtils.decodeCbor(request.data as Uint8Array) as Map<number, unknown>;
+  if (request.command === CTAP_COMMAND.authenticatorMakeCredential) {
+    return {
+      command: request.command,
+      request: {
+        clientDataHash: data.get(0x01) as Uint8Array,
+        rp: data.get(0x02) as PublicKeyCredentialRpEntity,
+        user: data.get(0x03) as PublicKeyCredentialUserEntity,
+        pubKeyCredParams: data.get(0x04) as PublicKeyCredentialParameters[],
+        excludeList: data.get(0x05) as PublicKeyCredentialDescriptor[],
+        extensions: data.get(0x06) as Map<string, unknown>,
+        options: data.get(0x07) as { rk?: boolean; uv?: boolean },
+        pinAuth: data.get(0x08) as Uint8Array,
+        pinProtocol: data.get(0x09) as number,
+      } as AuthenticatorMakeCredentialRequest,
+    };
+  }
+  if (request.command === CTAP_COMMAND.authenticatorGetAssertion) {
+    return {
+      command: request.command,
+      request: {
+        rpId: data.get(0x01) as string,
+        clientDataHash: data.get(0x02) as Uint8Array,
+        allowList: data.get(0x03) as PublicKeyCredentialDescriptor[],
+        extensions: data.get(0x04) as Map<string, unknown>,
+        options: data.get(0x05) as { up?: boolean; uv?: boolean },
+        pinAuth: data.get(0x06) as Uint8Array,
+        pinProtocol: data.get(0x07) as number,
+      } as AuthenticatorGetAssertionRequest,
+    };
+  }
+  for (const value of Object.values(CTAP_COMMAND)) {
+    if (request.command === value) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+  }
+  throw new CTAPError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+}
+
+export function packMakeCredentialRequest(request: AuthenticatorMakeCredentialRequest): CTAPAuthenticatorRequest {
+  return {
+    command: CTAP_COMMAND.authenticatorMakeCredential,
+    data: EncodeUtils.encodeCbor(
+      new Map<number, unknown>([
+        [0x01, request.clientDataHash],
+        [0x02, request.rp],
+        [0x03, request.user],
+        [0x04, request.pubKeyCredParams],
+        [0x05, request.excludeList],
+        [0x06, request.extensions],
+        [0x07, request.options],
+        [0x08, request.pinAuth],
+        [0x09, request.pinProtocol],
+      ]),
+    ),
+  };
+}
+
+export function packGetAssertionRequest(request: AuthenticatorGetAssertionRequest): CTAPAuthenticatorRequest {
+  return {
+    command: CTAP_COMMAND.authenticatorGetAssertion,
+    data: EncodeUtils.encodeCbor(
+      new Map<number, unknown>([
+        [0x01, request.rpId],
+        [0x02, request.clientDataHash],
+        [0x03, request.allowList],
+        [0x04, request.extensions],
+        [0x05, request.options],
+        [0x06, request.pinAuth],
+        [0x07, request.pinProtocol],
+      ]),
+    ),
+  };
+}
+
+export function unpackMakeCredentialResponse(response: CTAPAuthenticatorResponse): AuthenticatorMakeCredentialResponse {
+  try {
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Map<number, unknown>;
+    return {
+      fmt: data.get(0x01) as string,
+      authData: data.get(0x02) as Uint8Array,
+      attStmt: data.get(0x03) as Map<string, unknown>,
+    };
+  } catch (error) {
+    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
+}
+
+export function packMakeCredentialResponse(response: AuthenticatorMakeCredentialResponse): CTAPAuthenticatorResponse {
+  return {
+    status: CTAP_STATUS_CODE.CTAP2_OK,
+    data: EncodeUtils.encodeCbor(
+      new Map<number, unknown>([
+        [0x01, response.fmt],
+        [0x02, response.authData],
+        [0x03, response.attStmt],
+      ]),
+    ),
+  };
+}
+
+export function unpackGetAssertionResponse(response: CTAPAuthenticatorResponse): AuthenticatorGetAssertionResponse {
+  try {
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Map<number, unknown>;
+    return {
+      credential: data.get(0x01) as PublicKeyCredentialDescriptor,
+      authData: data.get(0x02) as Uint8Array,
+      signature: data.get(0x03) as Uint8Array,
+      user: data.get(0x04) as PublicKeyCredentialUserEntity,
+      numberOfCredentials: data.get(0x05) as number,
+    };
+  } catch (error) {
+    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
+}
+
+export function packGetAssertionResponse(response: AuthenticatorGetAssertionResponse): CTAPAuthenticatorResponse {
+  try {
+    return {
+      status: CTAP_STATUS_CODE.CTAP2_OK,
+      data: EncodeUtils.encodeCbor(
+        new Map<number, unknown>([
+          [0x01, response.credential],
+          [0x02, response.authData],
+          [0x03, response.signature],
+          [0x04, response.user],
+          [0x05, response.numberOfCredentials],
+        ]),
+      ),
+    };
+  } catch (error) {
+    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
 }
