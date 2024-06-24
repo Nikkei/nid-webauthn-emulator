@@ -1,3 +1,5 @@
+// Do not import anything here, it should be a standalone file
+
 type Base64urlString = string;
 type AuthenticationExtensionsClientInputsJSON = object;
 type AuthenticationExtensionsClientOutputsJSON = object;
