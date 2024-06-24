@@ -184,12 +184,17 @@ export class AuthenticatorEmulator {
     if (!interactionResponse) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Get assertion
-    const { authData, signature } = getAssertion(
-      request.clientDataHash,
-      this.params.signCounterIncrement,
-      credential,
-      interactionResponse,
-    );
+    const newSignCount = credential.authenticatorData.signCount + this.params.signCounterIncrement;
+    const { authData, signature } = getAssertion(request.clientDataHash, newSignCount, credential, interactionResponse);
+
+    // Update sign count
+    this.params.credentialsRepository.saveCredential({
+      ...credential,
+      authenticatorData: {
+        ...credential.authenticatorData,
+        signCount: newSignCount,
+      },
+    });
 
     return {
       credential: credential.publicKeyCredentialDescriptor,
@@ -231,11 +236,10 @@ export class AuthenticatorEmulator {
 
 function getAssertion(
   clientDataHash: Uint8Array,
-  signCounterIncrement: number,
+  newSignCounter: number,
   credential: PasskeyCredential,
   interactionResponse: InteractionResponse,
 ): { authData: Uint8Array; signature: Uint8Array } {
-  credential.authenticatorData.signCount += signCounterIncrement;
   const authenticatorData = {
     rpIdHash: credential.authenticatorData.rpIdHash,
     flags: {
@@ -246,7 +250,7 @@ function getAssertion(
       attestedCredentialData: false,
       extensionData: false,
     },
-    signCount: credential.authenticatorData.signCount,
+    signCount: newSignCounter,
   };
 
   const payload = new Array<number>();
