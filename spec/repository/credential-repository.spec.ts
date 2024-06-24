@@ -54,15 +54,20 @@ describe("Credential Repository Test", () => {
   });
 
   test("File Repository Test", async () => {
+    const FILE_IO_WAIT = 500;
     const deserialized = deserializeCredential(JSON.stringify(testCredentialJSON));
     const repository = new PasskeysCredentialsFileRepository();
-    repository.saveCredential(deserialized);
-    const loaded = repository.loadCredentials();
 
+    repository.saveCredential(deserialized);
+    await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
+
+    const loaded = repository.loadCredentials();
     expect(loaded[0]).toEqual(deserialized);
     expect(loaded.length).toEqual(1);
 
     repository.deleteCredential(deserialized);
+    await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
+
     const reLoaded = repository.loadCredentials();
     expect(reLoaded.length).toEqual(0);
   });
