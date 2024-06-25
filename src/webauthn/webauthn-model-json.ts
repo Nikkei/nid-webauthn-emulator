@@ -143,12 +143,13 @@ interface AuthenticatorAssertionResponseJSON {
 export function toRegistrationResponseJSON(credential: PublicKeyCredential): RegistrationResponseJSON {
   const attestationResponse = credential.response as AuthenticatorAttestationResponse;
   const publicKey = attestationResponse.getPublicKey();
+  const algorithm = attestationResponse.getPublicKeyAlgorithm();
   const responseJSON = {
     clientDataJSON: encodeBase64Url(attestationResponse.clientDataJSON),
     authenticatorData: encodeBase64Url(attestationResponse.getAuthenticatorData()),
     transports: attestationResponse.getTransports() as AuthenticatorTransport[],
     publicKey: publicKey ? encodeBase64Url(publicKey) : undefined,
-    publicKeyAlgorithm: attestationResponse.getPublicKeyAlgorithm(),
+    publicKeyAlgorithm: algorithm === -1 ? undefined : algorithm,
     attestationObject: encodeBase64Url(attestationResponse.attestationObject),
   };
 
