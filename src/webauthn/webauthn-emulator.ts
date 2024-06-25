@@ -41,6 +41,10 @@ export type AuthenticatorInfo = {
   };
 };
 
+export class WebAuthnEmulatorError extends Error {}
+export class NoPublicKeyError extends WebAuthnEmulatorError {}
+export class InvalidRpIdError extends WebAuthnEmulatorError {}
+
 /**
  * WebAuthn emulator
  */
@@ -75,9 +79,9 @@ export class WebAuthnEmulator {
 
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */
   public get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential {
-    if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
+    if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
     const rpId = new RpId(options.publicKey.rpId ?? "");
-    if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+    if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
@@ -93,8 +97,9 @@ export class WebAuthnEmulator {
     });
     const authenticatorResponse = unpackGetAssertionResponse(this.authenticator.command(authenticatorRequest));
 
-    const responseId = authenticatorResponse.credential?.id ?? options.publicKey.allowCredentials?.[0]?.id;
-    if (!responseId) throw new Error("No credential ID found");
+    const responseId =
+      authenticatorResponse.credential?.id ?? (options.publicKey.allowCredentials?.[0]?.id as BufferSource);
+
     const authData = unpackAuthenticatorData(authenticatorResponse.authData);
     const rawId = EncodeUtils.bufferSourceToUint8Array(responseId);
 
@@ -118,10 +123,10 @@ export class WebAuthnEmulator {
 
   /** @see https://developer.mozilla.org/ja/docs/Web/API/CredentialsContainer/create */
   public create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential {
-    if (!options.publicKey) throw new Error("PublicKeyCredentialCreationOptions are required");
+    if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rp.id ?? "");
-    if (!rpId.validate(origin)) throw new Error(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+    if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
       challenge: EncodeUtils.encodeBase64Url(options.publicKey.challenge),

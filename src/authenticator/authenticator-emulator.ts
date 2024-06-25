@@ -10,6 +10,7 @@ import {
   packAuthenticatorData,
 } from "../webauthn/webauthn-model";
 import {
+  AuthenticationEmulatorError,
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
   type AuthenticatorGetInfoResponse,
@@ -18,7 +19,6 @@ import {
   type AuthenticatorOptions,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
-  CTAPError,
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
   packGetAssertionResponse,
@@ -123,7 +123,7 @@ export class AuthenticatorEmulator {
     if (unpackedRequest.command === CTAP_COMMAND.authenticatorGetInfo) {
       return packGetInfoResponse(this.authenticatorGetInfo());
     }
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
   }
 
   /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetInfo */
@@ -141,23 +141,24 @@ export class AuthenticatorEmulator {
 
   /** @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred */
   public authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse {
-    if (!request.rp.id) throw new CTAPError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
+    if (!request.rp.id) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
     const rpId = new RpId(request.rp.id);
 
     // Exclude list
     if (request.excludeList && request.excludeList.length > 0) {
       const existingCredentials = this.getCredentials(rpId, request.excludeList);
-      if (existingCredentials.length > 0) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED);
+      if (existingCredentials.length > 0)
+        throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED);
     }
 
     // Algorithm selection
     const allowAlgSet = new Set(request.pubKeyCredParams.map((param) => param.alg));
     const alg = this.params.algorithmIdentifiers.find((alg) => allowAlgSet.has(COSEAlgorithmIdentifier[alg]));
-    if (!alg) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_UNSUPPORTED_ALGORITHM);
+    if (!alg) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_UNSUPPORTED_ALGORITHM);
 
     // User operation
     const interactionResponse = this.params.userMakeCredentialInteraction(request.user, request.options);
-    if (!interactionResponse) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
+    if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Create credential
     const credential = makeCredential(this.params.aaguid, rpId, alg, this.params.transports, interactionResponse);
@@ -176,12 +177,12 @@ export class AuthenticatorEmulator {
 
     // Allow list
     const credentials = this.getCredentials(rpId, request.allowList ?? []);
-    if (credentials.length === 0) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
+    if (credentials.length === 0) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
     const credential = credentials[credentials.length - 1];
 
     // User operation
     const interactionResponse = this.params.userGetAssertionInteraction(credential.user, request.options);
-    if (!interactionResponse) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
+    if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Get assertion
     const newSignCount = credential.authenticatorData.signCount + this.params.signCounterIncrement;

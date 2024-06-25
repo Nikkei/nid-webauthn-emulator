@@ -96,16 +96,16 @@ export interface RegistrationResponseJSON {
   readonly id: Base64urlString;
   readonly rawId: Base64urlString;
   readonly response: AuthenticatorAttestationResponseJSON;
-  readonly authenticatorAttachment?: string;
+  readonly authenticatorAttachment?: AuthenticatorAttachment;
   readonly clientExtensionResults: AuthenticationExtensionsClientOutputsJSON;
-  readonly type: string;
+  readonly type: PublicKeyCredentialType;
 }
 
 /** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorattestationresponsejson */
 interface AuthenticatorAttestationResponseJSON {
   readonly clientDataJSON: Base64urlString;
   readonly authenticatorData: Base64urlString;
-  readonly transports: string[];
+  readonly transports: AuthenticatorTransport[];
   readonly publicKey?: Base64urlString;
   readonly publicKeyAlgorithm?: number;
   readonly attestationObject: Base64urlString;
@@ -124,9 +124,9 @@ export interface AuthenticationResponseJSON {
   readonly id: Base64urlString;
   readonly rawId: Base64urlString;
   readonly response: AuthenticatorAssertionResponseJSON;
-  readonly authenticatorAttachment?: string;
+  readonly authenticatorAttachment?: AuthenticatorAttachment;
   readonly clientExtensionResults: AuthenticationExtensionsClientOutputsJSON;
-  readonly type: string;
+  readonly type: PublicKeyCredentialType;
 }
 
 /** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorassertionresponsejson */
@@ -146,7 +146,7 @@ export function toRegistrationResponseJSON(credential: PublicKeyCredential): Reg
   const responseJSON = {
     clientDataJSON: encodeBase64Url(attestationResponse.clientDataJSON),
     authenticatorData: encodeBase64Url(attestationResponse.getAuthenticatorData()),
-    transports: attestationResponse.getTransports(),
+    transports: attestationResponse.getTransports() as AuthenticatorTransport[],
     publicKey: publicKey ? encodeBase64Url(publicKey) : undefined,
     publicKeyAlgorithm: attestationResponse.getPublicKeyAlgorithm(),
     attestationObject: encodeBase64Url(attestationResponse.attestationObject),
@@ -157,7 +157,9 @@ export function toRegistrationResponseJSON(credential: PublicKeyCredential): Reg
     rawId: credential.id,
     response: responseJSON,
     authenticatorAttachment:
-      credential.authenticatorAttachment === null ? undefined : credential.authenticatorAttachment,
+      credential.authenticatorAttachment === null
+        ? undefined
+        : (credential.authenticatorAttachment as AuthenticatorAttachment),
     clientExtensionResults: credential.getClientExtensionResults() as AuthenticationExtensionsClientOutputsJSON,
     type: credential.type as PublicKeyCredentialType,
   };
@@ -176,7 +178,9 @@ export function toAuthenticationResponseJSON(credential: PublicKeyCredential): A
     rawId: credential.id,
     response: responseJson,
     authenticatorAttachment:
-      credential.authenticatorAttachment === null ? undefined : credential.authenticatorAttachment,
+      credential.authenticatorAttachment === null
+        ? undefined
+        : (credential.authenticatorAttachment as AuthenticatorAttachment),
     clientExtensionResults: credential.getClientExtensionResults() as AuthenticationExtensionsClientOutputsJSON,
     type: credential.type as PublicKeyCredentialType,
   };

@@ -93,7 +93,7 @@ export interface CTAPAuthenticatorRequest {
 
 // Not standard functions and interfaces
 
-export class CTAPError extends Error {
+export class AuthenticationEmulatorError extends Error {
   public type = "CTAPError";
   constructor(
     public status: CTAP_STATUS_CODE,
@@ -144,9 +144,9 @@ export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTA
     };
   }
   for (const value of Object.values(CTAP_COMMAND)) {
-    if (request.command === value) throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+    if (request.command === value) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
   }
-  throw new CTAPError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+  throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
 }
 
 export function packMakeCredentialRequest(request: AuthenticatorMakeCredentialRequest): CTAPAuthenticatorRequest {
@@ -194,7 +194,7 @@ export function unpackMakeCredentialResponse(response: CTAPAuthenticatorResponse
       attStmt: data.get(0x03) as object,
     };
   } catch (error) {
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
 }
 
@@ -222,7 +222,7 @@ export function unpackGetAssertionResponse(response: CTAPAuthenticatorResponse):
       numberOfCredentials: data.get(0x05) as number,
     };
   } catch (error) {
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
 }
 
@@ -241,7 +241,7 @@ export function packGetAssertionResponse(response: AuthenticatorGetAssertionResp
       ),
     };
   } catch (error) {
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
 }
 
@@ -261,7 +261,7 @@ export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTA
       ),
     };
   } catch (error) {
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
 }
 
@@ -277,6 +277,6 @@ export function unpackGetInfoResponse(response: CTAPAuthenticatorResponse): Auth
       pinProtocols: data.get(0x06) as number[] | undefined,
     };
   } catch (error) {
-    throw new CTAPError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
 }

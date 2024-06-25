@@ -86,14 +86,15 @@ const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.co
 const origin = "https://webauthn.io";
 const emulator = new WebAuthnEmulator();
 const webauthnIO = await WebAuthnIO.create();
+const user = webauthnIO.getUser();
 
 // Authenticator の情報を表示します
 console.log("Authenticator Information", emulator.getAuthenticatorInfo());
 
 // WebAuthn API Emulator により パスキーを作成します
-const creationOptions = await webauthnIO.getRegistrationOptions();
+const creationOptions = await webauthnIO.getRegistrationOptions(user);
 const creationCredential = emulator.createJSON(origin, creationOptions);
-await webauthnIO.getRegistrationVerification(creationCredential);
+await webauthnIO.getRegistrationVerification(user, creationCredential);
 
 // 認証を webauthn.io で検証します
 const requestOptions = await webauthnIO.getAuthenticationOptions();

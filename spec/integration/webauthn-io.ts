@@ -4,30 +4,30 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
 } from "../../src/webauthn/webauthn-model-json";
-import type { PasskeysApiClient } from "./passkeys-api-client";
+import type { PasskeysApiClient, PasskeysUser } from "./passkeys-api-client";
 
 /**
  * Passkeys Api Client implementation for webauthn.io
  */
 export class WebAuthnIO implements PasskeysApiClient {
-  private readonly userName: string;
-  private constructor(private sessionId: string) {
-    // generate random user name
-    this.userName = `test-user-${Math.random().toString(36).slice(-8)}`;
-  }
+  private constructor(private sessionId: string) {}
 
   public static async create(): Promise<WebAuthnIO> {
     const sessionId = await WebAuthnIO.getSessionId();
     return new WebAuthnIO(sessionId);
   }
 
+  public getUser(): PasskeysUser {
+    return { username: `user-${this.sessionId}`, id: this.sessionId };
+  }
+
   /**
    * Get a passkey registration options by https://webauthn.io/registration/options
    * @returns PublicKeyCredentialCreationOptionsJSON
    */
-  public async getRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+  public async getRegistrationOptions(user: PasskeysUser): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const optionsRequest = {
-      username: this.userName,
+      username: user.username,
       user_verification: "preferred",
       attestation: "none",
       attachment: "all",
@@ -49,10 +49,10 @@ export class WebAuthnIO implements PasskeysApiClient {
    * Register your passkey account by https://webauthn.io/registration/verification
    * @param response RegistrationResponseJSON
    */
-  public async getRegistrationVerification(response: RegistrationResponseJSON): Promise<void> {
+  public async getRegistrationVerification(user: PasskeysUser, response: RegistrationResponseJSON): Promise<void> {
     const verificationRequest = {
       response: response,
-      username: this.userName,
+      username: user.username,
     };
 
     const verification = await fetch("https://webauthn.io/registration/verification", {
