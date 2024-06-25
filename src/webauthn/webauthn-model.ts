@@ -73,11 +73,11 @@ export type CollectedClientData = {
 };
 
 export function packAttestationObject(attestationObject: AttestationObject): Uint8Array {
-  const data = new Map<string, unknown>();
-  data.set("fmt", attestationObject.fmt);
-  data.set("attStmt", attestationObject.attStmt);
-  data.set("authData", packAuthenticatorData(attestationObject.authData));
-  return EncodeUtils.encodeCbor(data);
+  return EncodeUtils.encodeCbor({
+    fmt: attestationObject.fmt,
+    attStmt: attestationObject.attStmt,
+    authData: packAuthenticatorData(attestationObject.authData),
+  });
 }
 
 export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array {

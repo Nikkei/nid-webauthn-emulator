@@ -29,22 +29,57 @@ function strToUint8Array(data: string): Uint8Array {
   return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
 }
 
-function encodeCbor(data: Map<unknown, unknown>): Uint8Array {
-  const canonicalData = new Map();
-  for (const [key, value] of data) {
-    if (value instanceof Map) {
-      canonicalData.set(key, encodeCbor(value));
-    } else if (value instanceof Uint8Array) {
-      canonicalData.set(key, Buffer.from(value));
-    } else {
-      canonicalData.set(key, value);
+function encodeCbor(data: object): Uint8Array {
+  function encoder(value: unknown): unknown {
+    if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
+      return Buffer.from(value);
     }
+    if (Array.isArray(value)) {
+      return value.map((v) => encoder(v));
+    }
+    if (typeof value === "object" && value !== null) {
+      const encodedData = new Map<unknown, unknown>();
+      for (const [k, v] of Object.entries(value)) {
+        const ki = Number.parseInt(k);
+        if (Number.isNaN(ki)) {
+          encodedData.set(k, encoder(v));
+        } else {
+          encodedData.set(ki, encoder(v));
+        }
+      }
+      return encodedData;
+    }
+    return value;
   }
-  return new Uint8Array(cbor.encode(canonicalData));
+  return new Uint8Array(cbor.encode(encoder(data)));
 }
 
 function decodeCbor<T>(data: Uint8Array): T {
-  return cbor.decode(data);
+  const canonicalData = cbor.decode(data) as Map<unknown, unknown>;
+  function decoder(value: unknown): unknown {
+    if (value instanceof Buffer) {
+      return new Uint8Array(value);
+    }
+    if (Array.isArray(value)) {
+      return value.map((v) => decoder(v));
+    }
+    if (value instanceof Map) {
+      const decodedData = {};
+      for (const [k, v] of value) {
+        Object.assign(decodedData, { [k]: decoder(v) });
+      }
+      return decodedData;
+    }
+    if (typeof value === "object" && value !== null) {
+      const decodedData = {};
+      for (const [k, v] of Object.entries(value)) {
+        Object.assign(decodedData, { [k]: decoder(v) });
+      }
+      return decodedData;
+    }
+    return value;
+  }
+  return decoder(canonicalData) as T;
 }
 
 const EncodeUtils = {

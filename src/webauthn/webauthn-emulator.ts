@@ -54,13 +54,13 @@ export class WebAuthnEmulator {
   public getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
     const options = parseRequestOptionsFromJSON(optionsJSON);
     const response = this.get(origin, { publicKey: options });
-    return toAuthenticationResponseJSON(response);
+    return response.toJSON();
   }
 
   public createJSON(origin: string, optionsJSON: PublicKeyCredentialCreationOptionsJSON): RegistrationResponseJSON {
     const options = parseCreationOptionsFromJSON(optionsJSON);
     const response = this.create(origin, { publicKey: options });
-    return toRegistrationResponseJSON(response);
+    return response.toJSON();
   }
 
   public getAuthenticatorInfo(): AuthenticatorInfo {
@@ -143,7 +143,7 @@ export class WebAuthnEmulator {
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
       excludeList: options.publicKey.excludeCredentials,
       options: {
-        rk: options.publicKey.authenticatorSelection?.requireResidentKey,
+        rk: true,
         uv: options.publicKey.authenticatorSelection?.userVerification !== "discouraged",
       },
     });

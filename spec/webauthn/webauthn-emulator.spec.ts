@@ -6,6 +6,7 @@ import WebAuthnEmulator, {
   InvalidRpIdError,
   NoPublicKeyError,
 } from "../../src";
+import EncodeUtils from "../../src/libs/encode-utils";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
 
 describe("WebAuthnEmulator Registration Passkeys Test", () => {
@@ -15,8 +16,16 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const testServer = new WebAuthnTestServer();
 
     const options = await testServer.getRegistrationOptions(user);
-    const credential = emulator.createJSON(TEST_RP_ORIGIN, options);
-    await testServer.getRegistrationVerification(user, credential);
+    const credential1 = emulator.createJSON(TEST_RP_ORIGIN, options);
+    await testServer.getRegistrationVerification(user, credential1);
+
+    const credential2 = emulator.createJSON(TEST_RP_ORIGIN, options);
+    await testServer.getRegistrationVerification(user, credential2);
+
+    // Last Credentials only
+    const credentialRecords = emulator.authenticator.params.credentialsRepository.loadCredentials();
+    expect(credentialRecords.length).toBe(1);
+    expect(EncodeUtils.encodeBase64Url(credentialRecords[0].publicKeyCredentialSource.id)).toBe(credential2.id);
   });
 
   test("Create Passkeys with an illegal origin _ failed to response", async () => {
@@ -25,7 +34,6 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const testServer = new WebAuthnTestServer();
 
     const options = await testServer.getRegistrationOptions(user);
-
     await expect(async () => {
       emulator.createJSON(illegalOrigin, options);
     }).rejects.toThrow(InvalidRpIdError);
