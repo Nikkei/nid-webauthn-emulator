@@ -147,8 +147,9 @@ export class AuthenticatorEmulator {
     // Exclude list
     if (request.excludeList && request.excludeList.length > 0) {
       const existingCredentials = this.getCredentials(rpId, request.excludeList);
-      if (existingCredentials.length > 0)
+      if (existingCredentials.length > 0) {
         throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED);
+      }
     }
 
     // Algorithm selection
@@ -224,7 +225,9 @@ export class AuthenticatorEmulator {
     if (rk) {
       const index = credentials.findIndex((c) => {
         if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
-        if (c.user?.id && credential.user?.id && c.user.id === credential.user.id) return true;
+        if (c.user?.id && credential.user?.id) {
+          if (EncodeUtils.encodeBase64Url(c.user.id) === EncodeUtils.encodeBase64Url(credential.user.id)) return true;
+        }
         return false;
       });
       if (index >= 0) {
