@@ -1,5 +1,9 @@
 # NID WebAuthn Emulator
 
+[![CI Status](https://github.com/Nikkei/nid-webauthn-emulator/actions/workflows/ci.yml/badge.svg)](https://github.com/Nikkei/nid-webauthn-emulator/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
 `NID WebAuthn Emulator` は、[FIDO2/CTAP Authenticator のエミュレータ](src/authenticator/authenticator-emulator.ts) およびそれを利用した [WebAuthn API のエミュレータ](src/webauthn/webauthn-emulator.ts) ライブラリです。それぞれ WebAuthn API および CTAP の仕様に基づいて実装されています。このモジュールは Node.js 上で動作し、ローカルでの Passkeys の統合テストを目的として設計されています。
 
 ## 使用方法
