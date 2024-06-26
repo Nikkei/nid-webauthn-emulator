@@ -13,9 +13,7 @@ const CREDENTIALS_DIR = path.join(__dirname, "./credentials");
 
 export class PasskeysCredentialsFileRepository implements PasskeysCredentialsRepository {
   constructor(private readonly credentialsDir: string = CREDENTIALS_DIR) {
-    if (!fs.existsSync(credentialsDir)) {
-      fs.mkdirSync(credentialsDir);
-    }
+    fs.mkdirSync(credentialsDir, { recursive: true });
   }
 
   saveCredential(credential: PasskeyCredential): void {
@@ -28,9 +26,7 @@ export class PasskeysCredentialsFileRepository implements PasskeysCredentialsRep
   deleteCredential(credential: PasskeyCredential): void {
     const id = getRepositoryId(credential);
     const filename = path.join(this.credentialsDir, `${id}.json`);
-    fs.unlink(filename, (err) => {
-      if (err) console.error(err);
-    });
+    fs.unlink(filename, () => {});
   }
   loadCredentials(): PasskeyCredential[] {
     const files = fs.readdirSync(this.credentialsDir);

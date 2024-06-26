@@ -1,10 +1,15 @@
 import { describe, test } from "@jest/globals";
 import { expect } from "@jest/globals";
 import {
+  type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
   type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
+  type CTAPAuthenticatorRequest,
+  type CTAPAuthenticatorResponse,
+  CTAP_COMMAND,
+  packGetAssertionRequest,
   packGetAssertionResponse,
   packGetInfoResponse,
   packMakeCredentialRequest,
@@ -38,21 +43,19 @@ describe("CTAP Model Test", () => {
   });
 
   test("GetAssertionRequest CTAP Object pack and unpack", async () => {
-    const testRequest: AuthenticatorMakeCredentialRequest = {
+    const testRequest: AuthenticatorGetAssertionRequest = {
+      rpId: "webauthn.io",
       clientDataHash: new Uint8Array([99, 104, 97, 108, 108, 101, 110, 103, 101]),
-      rp: { name: "webauthn.io", id: "webauthn.io" },
-      user: { id: new Uint8Array([116, 101, 115, 116, 45, 117, 115, 101, 114]), name: "user", displayName: "user" },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-      excludeList: [{ id: new Uint8Array([116, 101, 115, 116, 45, 99]), type: "public-key" }],
-      options: { rk: true, uv: true },
-      pinAuth: new Uint8Array([112, 105, 110, 65, 117, 116, 104]),
+      allowList: [{ id: new Uint8Array([116, 101, 115, 116, 45, 99]), type: "public-key" }],
       extensions: {},
+      options: { up: true, uv: true },
+      pinAuth: new Uint8Array([112, 105, 110, 65, 117, 116, 104]),
       pinProtocol: 9,
     };
 
-    const packed = packMakeCredentialRequest(testRequest);
+    const packed = packGetAssertionRequest(testRequest);
     const unpacked = unpackRequest(packed);
-    const rePacked = packMakeCredentialRequest(unpacked.request as AuthenticatorMakeCredentialRequest);
+    const rePacked = packGetAssertionRequest(unpacked.request as AuthenticatorGetAssertionRequest);
 
     expect(packed).toEqual(rePacked);
     expect(unpacked.request).toEqual(testRequest);
@@ -105,5 +108,22 @@ describe("CTAP Model Test", () => {
 
     expect(packed).toEqual(rePacked);
     expect(unpacked).toEqual(testResponse);
+  });
+
+  test("Illegal data parse test _ failed to unpack", async () => {
+    const response = {} as unknown as CTAPAuthenticatorResponse;
+    const expected = "CTAP error: CTAP2_ERR_INVALID_CBOR (18)";
+
+    expect(() => unpackMakeCredentialResponse(response)).toThrowError(expected);
+    expect(() => unpackGetAssertionResponse(response)).toThrowError(expected);
+    expect(() => unpackGetInfoResponse(response)).toThrowError(expected);
+  });
+
+  test("Illegal cbor data parse test _ failed to unpack", async () => {
+    const request: CTAPAuthenticatorRequest = {
+      command: CTAP_COMMAND.authenticatorMakeCredential,
+      data: new Uint8Array([1, 2, 3, 4, 5]),
+    };
+    expect(() => unpackRequest(request)).toThrowError("CTAP error: CTAP2_ERR_INVALID_CBOR (18)");
   });
 });
