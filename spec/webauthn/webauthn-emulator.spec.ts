@@ -128,6 +128,22 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     await testServer.getAuthenticationVerification(credential);
   });
 
+  test("EdDSA Algorithm Passkeys test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ algorithmIdentifiers: ["EdDSA"] });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
+    await testServer.getAuthenticationVerification(credential);
+  });
+
+  test("RS256 Algorithm Passkeys test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ algorithmIdentifiers: ["RS256"] });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
+    await testServer.getAuthenticationVerification(credential);
+  });
+
   test("Authenticate Passkeys with an illegal origin _ failed to response", async () => {
     const [emulator, testServer] = await createCredential();
     const illegalOrigin = `${TEST_RP_ORIGIN}_illegal`;

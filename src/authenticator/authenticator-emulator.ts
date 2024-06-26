@@ -1,4 +1,4 @@
-import { createPrivateKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
+import { createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import EncodeUtils from "../libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
 import type { PasskeyCredential, PasskeysCredentialsRepository } from "../repository/credentials-repository";
@@ -269,7 +269,7 @@ function getAssertion(
     key: credential.publicKeyCredentialSource.privateKey as Buffer,
   });
 
-  const signature = createSign("sha256").update(new Uint8Array(payload)).sign(privateKey);
+  const signature = sign(null, new Uint8Array(payload), privateKey);
   return { authData: packAuthenticatorData(authenticatorData), signature };
 }
 
