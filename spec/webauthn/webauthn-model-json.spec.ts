@@ -95,4 +95,22 @@ describe("WebAuthn JSON Model Test", () => {
     expect(toAuthenticationResponseJSON(model)).toEqual(customJson);
     expect(model.toJSON()).toEqual(customJson);
   });
+
+  test("Parse Authentication Response with User Handle JSON test", async () => {
+    const testData: AuthenticationResponseJSON = {
+      type: "public-key",
+      id: "AAAAAA",
+      rawId: "AAAAAA",
+      response: {
+        clientDataJSON: "BBBBBB",
+        authenticatorData: "CCCCCC",
+        signature: "DDDDDD",
+        userHandle: "EEEEEE",
+      },
+      clientExtensionResults: {},
+    };
+    const model = parseAuthenticationResponseFromJSON(testData);
+    const json = model.toJSON();
+    expect(json).toEqual(testData);
+  });
 });

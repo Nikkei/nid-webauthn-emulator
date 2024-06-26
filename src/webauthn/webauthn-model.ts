@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { parse } from "tldts";
+import type { AuthenticatorInteractionOptions, AuthenticatorOptions } from "../authenticator/ctap-model";
 import EncodeUtils from "../libs/encode-utils";
 import { CoseKey } from "./cose-key";
 
@@ -187,5 +188,59 @@ export function parsePublicKeyCredentialSourceFromJSON(json: PublicKeyCredential
     privateKey: EncodeUtils.decodeBase64Url(json.privateKey),
     rpId: new RpId(json.rpId),
     userHandle: json.userHandle ? EncodeUtils.decodeBase64Url(json.userHandle) : undefined,
+  };
+}
+
+/** @see https://www.w3.org/TR/webauthn-3/#CreateCred-async-loop */
+export function toFido2CreateOptions(criteria?: AuthenticatorSelectionCriteria): AuthenticatorOptions {
+  let requireResidentKey = false;
+  let userVerification = false;
+
+  if (criteria) {
+    if (criteria.residentKey) {
+      if (criteria.residentKey === "required") {
+        requireResidentKey = true;
+      } else if (criteria.residentKey === "preferred") {
+        requireResidentKey = true;
+      } else if (criteria.residentKey === "discouraged") {
+        requireResidentKey = false;
+      }
+    } else {
+      requireResidentKey = !!criteria.requireResidentKey;
+    }
+
+    if (criteria.userVerification === "required") {
+      userVerification = true;
+    } else if (criteria.userVerification === "preferred") {
+      userVerification = true;
+    } else if (criteria.userVerification === "discouraged") {
+      userVerification = false;
+    }
+  }
+
+  return {
+    rk: requireResidentKey,
+    uv: userVerification,
+    up: true,
+  };
+}
+
+/** @see https://www.w3.org/TR/webauthn-3/#sctn-issuing-cred-request-to-authenticator */
+export function toFido2RequestOptions(require?: UserVerificationRequirement): AuthenticatorInteractionOptions {
+  let userVerification: boolean;
+
+  if (require === "required") {
+    userVerification = true;
+  } else if (require === "preferred") {
+    userVerification = true;
+  } else if (require === "discouraged") {
+    userVerification = false;
+  } else {
+    userVerification = false;
+  }
+
+  return {
+    uv: userVerification,
+    up: true,
   };
 }

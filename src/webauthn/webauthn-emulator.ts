@@ -29,6 +29,8 @@ import {
   RpId,
   packAttestationObject,
   packAuthenticatorData,
+  toFido2CreateOptions,
+  toFido2RequestOptions,
   unpackAuthenticatorData,
 } from "./webauthn-model";
 
@@ -36,8 +38,8 @@ export type AuthenticatorInfo = {
   version: string;
   aaguid: string;
   options: {
-    rk: boolean;
-    uv: boolean;
+    rk?: boolean;
+    uv?: boolean;
   };
 };
 
@@ -71,8 +73,8 @@ export class WebAuthnEmulator {
       version: authenticatorInfo.versions.join(", "),
       aaguid: EncodeUtils.encodeBase64Url(authenticatorInfo.aaguid),
       options: {
-        rk: authenticatorInfo.options?.rk ?? false,
-        uv: authenticatorInfo.options?.uv ?? false,
+        rk: authenticatorInfo.options?.rk,
+        uv: authenticatorInfo.options?.uv,
       },
     };
   }
@@ -80,7 +82,8 @@ export class WebAuthnEmulator {
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */
   public get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential {
     if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
-    const rpId = new RpId(options.publicKey.rpId ?? "");
+
+    const rpId = new RpId(options.publicKey.rpId ?? new URL(origin).hostname);
     if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
@@ -94,6 +97,7 @@ export class WebAuthnEmulator {
       rpId: rpId.value,
       clientDataHash: createHash("sha256").update(JSON.stringify(clientData)).digest(),
       allowList: options.publicKey.allowCredentials,
+      options: toFido2RequestOptions(options.publicKey.userVerification),
     });
     const authenticatorResponse = unpackGetAssertionResponse(this.authenticator.command(authenticatorRequest));
 
@@ -111,10 +115,12 @@ export class WebAuthnEmulator {
         clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
         authenticatorData: packAuthenticatorData(authData),
         signature: authenticatorResponse.signature,
-        userHandle: EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id),
+        userHandle: authenticatorResponse.user
+          ? EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id)
+          : null,
       },
       authenticatorAttachment: null,
-      getClientExtensionResults: () => ({ credProps: { rk: true } }),
+      getClientExtensionResults: () => ({ credProps: { rk: authenticatorResponse.user !== undefined } }),
       toJSON: () => toAuthenticationResponseJSON(publicKeyCredential),
     };
 
@@ -125,7 +131,7 @@ export class WebAuthnEmulator {
   public create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential {
     if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
 
-    const rpId = new RpId(options.publicKey.rp.id ?? "");
+    const rpId = new RpId(options.publicKey.rp.id ?? new URL(origin).hostname);
     if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
@@ -138,14 +144,11 @@ export class WebAuthnEmulator {
 
     const authenticatorRequest = packMakeCredentialRequest({
       clientDataHash: createHash("sha256").update(clientDataJSON).digest(),
-      rp: options.publicKey.rp,
+      rp: { name: options.publicKey.rp.name, id: rpId.value },
       user: options.publicKey.user,
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
       excludeList: options.publicKey.excludeCredentials,
-      options: {
-        rk: true,
-        uv: options.publicKey.authenticatorSelection?.userVerification !== "discouraged",
-      },
+      options: toFido2CreateOptions(options.publicKey.authenticatorSelection),
     });
     const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
 

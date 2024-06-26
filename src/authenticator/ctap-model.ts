@@ -6,10 +6,15 @@ export type AuthenticatorOptions = {
   up: boolean;
 };
 
+export type AuthenticatorInteractionOptions = {
+  up: boolean;
+  uv: boolean;
+};
+
 /** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialRequest {
   clientDataHash: Uint8Array;
-  rp: PublicKeyCredentialRpEntity;
+  rp: PublicKeyCredentialRpEntity & { id: string };
   user: PublicKeyCredentialUserEntity;
   pubKeyCredParams: PublicKeyCredentialParameters[];
   excludeList?: PublicKeyCredentialDescriptor[];
@@ -42,7 +47,7 @@ export interface AuthenticatorGetAssertionResponse {
   credential?: PublicKeyCredentialDescriptor;
   authData: Uint8Array;
   signature: Uint8Array;
-  user: PublicKeyCredentialUserEntity;
+  user?: PublicKeyCredentialUserEntity;
   numberOfCredentials: number;
 }
 
@@ -104,47 +109,49 @@ export class AuthenticationEmulatorError extends Error {
 }
 
 export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTAP_COMMAND; request: unknown } {
-  const data = (request.data ? EncodeUtils.decodeCbor(request.data) : {}) as Record<number, unknown>;
-  if (request.command === CTAP_COMMAND.authenticatorMakeCredential) {
-    return {
-      command: request.command,
-      request: {
-        clientDataHash: EncodeUtils.bufferSourceToUint8Array(data[0x01] as BufferSource),
-        rp: data[0x02] as PublicKeyCredentialRpEntity,
-        user: data[0x03] as PublicKeyCredentialUserEntity,
-        pubKeyCredParams: data[0x04] as PublicKeyCredentialParameters[],
-        excludeList: data[0x05] as PublicKeyCredentialDescriptor[] | undefined,
-        extensions: data[0x06] as object | undefined,
-        options: data[0x07] as { rk?: boolean; uv?: boolean } | undefined,
-        pinAuth: data[0x08] ? EncodeUtils.bufferSourceToUint8Array(data[0x08] as BufferSource) : undefined,
-        pinProtocol: data[0x09] as number | undefined,
-      } as AuthenticatorMakeCredentialRequest,
-    };
+  let data: Record<number, unknown> = {};
+  try {
+    data = (request.data ? EncodeUtils.decodeCbor(request.data) : {}) as Record<number, unknown>;
+  } catch (error) {
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
-  if (request.command === CTAP_COMMAND.authenticatorGetAssertion) {
-    return {
-      command: request.command,
-      request: {
-        rpId: data[0x01] as string,
-        clientDataHash: EncodeUtils.bufferSourceToUint8Array(data[0x02] as BufferSource),
-        allowList: data[0x03] as PublicKeyCredentialDescriptor[] | undefined,
-        extensions: data[0x04] as object | undefined,
-        options: data[0x05] as { up?: boolean; uv?: boolean } | undefined,
-        pinAuth: data[0x08] ? EncodeUtils.bufferSourceToUint8Array(data[0x06] as BufferSource) : undefined,
-        pinProtocol: data[0x07] as number | undefined,
-      } as AuthenticatorGetAssertionRequest,
-    };
+
+  switch (request.command) {
+    case CTAP_COMMAND.authenticatorMakeCredential:
+      return {
+        command: request.command,
+        request: {
+          clientDataHash: EncodeUtils.bufferSourceToUint8Array(data[0x01] as BufferSource),
+          rp: data[0x02] as PublicKeyCredentialRpEntity,
+          user: data[0x03] as PublicKeyCredentialUserEntity,
+          pubKeyCredParams: data[0x04] as PublicKeyCredentialParameters[],
+          excludeList: data[0x05] as PublicKeyCredentialDescriptor[] | undefined,
+          extensions: data[0x06] as object | undefined,
+          options: data[0x07] as { rk?: boolean; uv?: boolean } | undefined,
+          pinAuth: data[0x08] ? EncodeUtils.bufferSourceToUint8Array(data[0x08] as BufferSource) : undefined,
+          pinProtocol: data[0x09] as number | undefined,
+        } as AuthenticatorMakeCredentialRequest,
+      };
+
+    case CTAP_COMMAND.authenticatorGetAssertion:
+      return {
+        command: request.command,
+        request: {
+          rpId: data[0x01] as string,
+          clientDataHash: EncodeUtils.bufferSourceToUint8Array(data[0x02] as BufferSource),
+          allowList: data[0x03] as PublicKeyCredentialDescriptor[] | undefined,
+          extensions: data[0x04] as object | undefined,
+          options: data[0x05] as { up?: boolean; uv?: boolean } | undefined,
+          pinAuth: data[0x06] ? EncodeUtils.bufferSourceToUint8Array(data[0x06] as BufferSource) : undefined,
+          pinProtocol: data[0x07] as number | undefined,
+        } as AuthenticatorGetAssertionRequest,
+      };
+    default:
+      return {
+        command: request.command,
+        request: undefined,
+      };
   }
-  if (request.command === CTAP_COMMAND.authenticatorGetInfo) {
-    return {
-      command: request.command,
-      request: undefined,
-    };
-  }
-  for (const value of Object.values(CTAP_COMMAND)) {
-    if (request.command === value) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
-  }
-  throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
 }
 
 export function packMakeCredentialRequest(request: AuthenticatorMakeCredentialRequest): CTAPAuthenticatorRequest {
@@ -219,38 +226,16 @@ export function unpackGetAssertionResponse(response: CTAPAuthenticatorResponse):
 }
 
 export function packGetAssertionResponse(response: AuthenticatorGetAssertionResponse): CTAPAuthenticatorResponse {
-  try {
-    return {
-      status: CTAP_STATUS_CODE.CTAP2_OK,
-      data: EncodeUtils.encodeCbor({
-        [0x01]: response.credential,
-        [0x02]: response.authData,
-        [0x03]: response.signature,
-        [0x04]: response.user,
-        [0x05]: response.numberOfCredentials,
-      }),
-    };
-  } catch (error) {
-    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
-  }
-}
-
-export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTAPAuthenticatorResponse {
-  try {
-    return {
-      status: CTAP_STATUS_CODE.CTAP2_OK,
-      data: EncodeUtils.encodeCbor({
-        [0x01]: response.versions,
-        [0x02]: response.extensions,
-        [0x03]: response.aaguid,
-        [0x04]: response.options,
-        [0x05]: response.maxMsgSize,
-        [0x06]: response.pinProtocols,
-      }),
-    };
-  } catch (error) {
-    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
-  }
+  return {
+    status: CTAP_STATUS_CODE.CTAP2_OK,
+    data: EncodeUtils.encodeCbor({
+      [0x01]: response.credential,
+      [0x02]: response.authData,
+      [0x03]: response.signature,
+      [0x04]: response.user,
+      [0x05]: response.numberOfCredentials,
+    }),
+  };
 }
 
 export function unpackGetInfoResponse(response: CTAPAuthenticatorResponse): AuthenticatorGetInfoResponse {
@@ -267,4 +252,18 @@ export function unpackGetInfoResponse(response: CTAPAuthenticatorResponse): Auth
   } catch (error) {
     throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
   }
+}
+
+export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTAPAuthenticatorResponse {
+  return {
+    status: CTAP_STATUS_CODE.CTAP2_OK,
+    data: EncodeUtils.encodeCbor({
+      [0x01]: response.versions,
+      [0x02]: response.extensions,
+      [0x03]: response.aaguid,
+      [0x04]: response.options,
+      [0x05]: response.maxMsgSize,
+      [0x06]: response.pinProtocols,
+    }),
+  };
 }

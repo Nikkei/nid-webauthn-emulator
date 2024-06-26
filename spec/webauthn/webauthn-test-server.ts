@@ -33,10 +33,15 @@ export class WebAuthnTestServer implements PasskeysApiClient {
   private challenges: Set<string> = new Set();
   private credentials: CredentialRecord[] = [];
 
+  constructor(
+    public origin = TEST_RP_ORIGIN,
+    public rpID = TEST_RP_ID,
+  ) {}
+
   async getRegistrationOptions(user: PasskeysUser): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const options = await generateRegistrationOptions({
       rpName: "Test RP",
-      rpID: TEST_RP_ID,
+      rpID: this.rpID,
       userName: user.username,
       attestationType: "none",
       excludeCredentials: this.credentials.map((cred) => ({
@@ -58,8 +63,8 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge: (challenge) => this.challenges.has(challenge),
-      expectedOrigin: TEST_RP_ORIGIN,
-      expectedRPID: TEST_RP_ID,
+      expectedOrigin: this.origin,
+      expectedRPID: this.rpID,
     });
 
     if (!verification.verified || !verification.registrationInfo) throw new Error("Registration verification failed");
@@ -77,7 +82,7 @@ export class WebAuthnTestServer implements PasskeysApiClient {
 
   async getAuthenticationOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
     const options = await generateAuthenticationOptions({
-      rpID: TEST_RP_ID,
+      rpID: this.rpID,
       allowCredentials: this.credentials.map((cred) => ({
         id: cred.id,
         type: "public-key",
@@ -94,8 +99,8 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: (challenge) => this.challenges.has(challenge),
-      expectedOrigin: TEST_RP_ORIGIN,
-      expectedRPID: TEST_RP_ID,
+      expectedOrigin: this.origin,
+      expectedRPID: this.rpID,
       authenticator: {
         credentialID: credential.id,
         credentialPublicKey: credential.publicKey,

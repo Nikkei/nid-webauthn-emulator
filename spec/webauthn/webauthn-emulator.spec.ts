@@ -1,10 +1,13 @@
 import { describe, expect, test } from "@jest/globals";
 import WebAuthnEmulator, {
   AuthenticationEmulatorError,
-  CTAP_STATUS_CODE,
   AuthenticatorEmulator,
+  CTAP_STATUS_CODE,
   InvalidRpIdError,
   NoPublicKeyError,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+  toPublicKeyCredentialDescriptorJSON,
 } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
@@ -79,6 +82,19 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
       emulator.createJSON(TEST_RP_ORIGIN, options);
     }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED));
   });
+
+  test("Create Passkeys without RP ID _ OK", async () => {
+    const emulator = new WebAuthnEmulator();
+    const testServer = new WebAuthnTestServer();
+
+    const options = await testServer.getRegistrationOptions(user);
+    const customOptions: PublicKeyCredentialCreationOptionsJSON = {
+      ...options,
+      rp: { name: "test" },
+    };
+    const credential1 = emulator.createJSON(TEST_RP_ORIGIN, customOptions);
+    await testServer.getRegistrationVerification(user, credential1);
+  });
 });
 
 describe("WebAuthnEmulator Authentication Passkeys Test", () => {
@@ -86,12 +102,23 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
   const createCredential = async (
     authenticator?: AuthenticatorEmulator,
   ): Promise<[WebAuthnEmulator, WebAuthnTestServer]> => {
+    const testServer1 = new WebAuthnTestServer();
+    const testServer2 = new WebAuthnTestServer("https://test-rp2.com", "test-rp2.com");
     const emulator = new WebAuthnEmulator(authenticator);
-    const testServer = new WebAuthnTestServer();
-    const options = await testServer.getRegistrationOptions(user);
-    const credential = emulator.createJSON(TEST_RP_ORIGIN, options);
-    await testServer.getRegistrationVerification(user, credential);
-    return [emulator, testServer];
+
+    const options1 = await testServer1.getRegistrationOptions(user);
+    const credential1 = emulator.createJSON(testServer1.origin, options1);
+    await testServer1.getRegistrationVerification(user, credential1);
+
+    const options2 = await testServer2.getRegistrationOptions(user);
+    const customOptions2: PublicKeyCredentialCreationOptionsJSON = {
+      ...options2,
+      authenticatorSelection: { residentKey: "discouraged" },
+    };
+    const credential2 = emulator.createJSON(testServer2.origin, customOptions2);
+    await testServer2.getRegistrationVerification(user, credential2);
+
+    return [emulator, testServer1];
   };
 
   test("Create and Authenticate Passkeys test _ OK", async () => {
@@ -137,6 +164,18 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     await expect(async () => {
       emulator.getJSON(TEST_RP_ORIGIN, options);
     }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED));
+  });
+
+  test("Only one credential is allowed and RP ID is undefined _ credential is undefined and OK", async () => {
+    const [emulator, testServer] = await createCredential();
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.authenticator.params.credentialsRepository.loadCredentials()[0];
+    emulator.getJSON(TEST_RP_ORIGIN, {
+      ...options,
+      rpId: undefined,
+
+      allowCredentials: [toPublicKeyCredentialDescriptorJSON(credential.publicKeyCredentialDescriptor)],
+    } as PublicKeyCredentialRequestOptionsJSON);
   });
 });
 

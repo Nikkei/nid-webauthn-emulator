@@ -28,14 +28,9 @@ import {
 } from "./ctap-model";
 
 type InteractionResponse = {
-  user: PublicKeyCredentialUserEntity;
+  user?: PublicKeyCredentialUserEntity;
   options: { uv: boolean; up: boolean };
 };
-
-type Interaction = (
-  user?: PublicKeyCredentialUserEntity,
-  options?: Partial<AuthenticatorOptions>,
-) => InteractionResponse | undefined;
 
 export const COSEAlgorithmIdentifier = {
   ES256: -7,
@@ -78,12 +73,12 @@ export class AuthenticatorEmulator {
   private static readonly DEFAULT_ALGORITHM_IDENTIFIERS = ["ES256", "RS256", "EdDSA"] as const;
   private static readonly DEFAULT_SIGN_COUNTER_INCREMENT = 1;
   private static readonly DEFAULT_VERIFICATIONS = { userPresent: true, userVerified: true };
-  private static readonly DEFAULT_MAKE_CREDENTIAL_INTERACTION: Interaction = (user) => ({
-    user: user ?? AuthenticatorEmulator.DEFAULT_USER,
+  private static readonly DEFAULT_MAKE_CREDENTIAL_INTERACTION = (user: PublicKeyCredentialUserEntity) => ({
+    user: user,
     options: { uv: true, up: true },
   });
-  private static readonly DEFAULT_GET_ASSERTION_INTERACTION: Interaction = (user) => ({
-    user: user ?? AuthenticatorEmulator.DEFAULT_USER,
+  private static readonly DEFAULT_GET_ASSERTION_INTERACTION = (user?: PublicKeyCredentialUserEntity) => ({
+    user: user,
     options: { uv: true, up: true },
   });
 
@@ -141,7 +136,6 @@ export class AuthenticatorEmulator {
 
   /** @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred */
   public authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse {
-    if (!request.rp.id) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
     const rpId = new RpId(request.rp.id);
 
     // Exclude list
@@ -162,8 +156,16 @@ export class AuthenticatorEmulator {
     if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Create credential
-    const credential = makeCredential(this.params.aaguid, rpId, alg, this.params.transports, interactionResponse);
-    this.addCredential(credential, request.options?.rk ?? false);
+    const discoverable = request.options?.rk ?? true;
+    const credential = makeCredential(
+      this.params.aaguid,
+      rpId,
+      alg,
+      this.params.transports,
+      interactionResponse,
+      discoverable,
+    );
+    this.addCredential(credential, discoverable);
 
     return {
       fmt: "packed",
@@ -199,7 +201,7 @@ export class AuthenticatorEmulator {
     });
 
     return {
-      credential: credential.publicKeyCredentialDescriptor,
+      credential: request.allowList?.length === 1 ? undefined : credential.publicKeyCredentialDescriptor,
       authData,
       signature,
       user: interactionResponse.user,
@@ -277,6 +279,7 @@ function makeCredential(
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
   interactionResponse: InteractionResponse,
+  discoverable: boolean,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -291,9 +294,10 @@ function makeCredential(
     id: credentialId,
     privateKey: new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" })),
     rpId: rpId,
-    userHandle: interactionResponse.user
-      ? EncodeUtils.bufferSourceToUint8Array(interactionResponse.user.id)
-      : undefined,
+    userHandle:
+      interactionResponse.user && discoverable
+        ? EncodeUtils.bufferSourceToUint8Array(interactionResponse.user.id)
+        : undefined,
   };
 
   const publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor = {
@@ -323,6 +327,6 @@ function makeCredential(
     publicKeyCredentialDescriptor,
     publicKeyCredentialSource,
     authenticatorData,
-    user: interactionResponse.user,
+    user: discoverable ? interactionResponse.user : undefined,
   };
 }
