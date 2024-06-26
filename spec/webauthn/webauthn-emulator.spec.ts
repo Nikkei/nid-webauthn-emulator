@@ -8,6 +8,7 @@ import WebAuthnEmulator, {
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
   toPublicKeyCredentialDescriptorJSON,
+  unpackAuthenticatorData,
 } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
@@ -126,6 +127,37 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     const options = await testServer.getAuthenticationOptions();
     const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
     await testServer.getAuthenticationVerification(credential);
+  });
+
+  test("EdDSA Algorithm Passkeys test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ algorithmIdentifiers: ["EdDSA"] });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
+    await testServer.getAuthenticationVerification(credential);
+  });
+
+  test("RS256 Algorithm Passkeys test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ algorithmIdentifiers: ["RS256"] });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
+    await testServer.getAuthenticationVerification(credential);
+  });
+
+  test("SignCounter Increment test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ signCounterIncrement: 13 });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options1 = await testServer.getAuthenticationOptions();
+    const credential1 = emulator.getJSON(TEST_RP_ORIGIN, options1);
+
+    const authData = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential1.response.authenticatorData));
+    expect(authData.signCount).toBe(13);
+
+    const options2 = await testServer.getAuthenticationOptions();
+    const credential2 = emulator.getJSON(TEST_RP_ORIGIN, options2);
+    const authData2 = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential2.response.authenticatorData));
+    expect(authData2.signCount).toBe(26);
   });
 
   test("Authenticate Passkeys with an illegal origin _ failed to response", async () => {
