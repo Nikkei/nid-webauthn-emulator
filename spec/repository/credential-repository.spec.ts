@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import path from "node:path";
 import { describe, expect, test } from "@jest/globals";
 import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
@@ -56,19 +58,28 @@ describe("Credential Repository Test", () => {
   test("File Repository Test", async () => {
     const FILE_IO_WAIT = 500;
     const deserialized = deserializeCredential(JSON.stringify(testCredentialJSON));
-    const repository = new PasskeysCredentialsFileRepository();
+    const TEST_CREDENTIALS_DIR = path.join(__dirname, "test-credentials");
+    try {
+      fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
+      const repository = new PasskeysCredentialsFileRepository(TEST_CREDENTIALS_DIR);
 
-    repository.saveCredential(deserialized);
-    await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
+      repository.saveCredential(deserialized);
+      await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
 
-    const loaded = repository.loadCredentials();
-    expect(loaded[0]).toEqual(deserialized);
-    expect(loaded.length).toEqual(1);
+      const loaded = repository.loadCredentials();
+      expect(loaded[0]).toEqual(deserialized);
+      expect(loaded.length).toEqual(1);
 
-    repository.deleteCredential(deserialized);
-    await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
+      repository.deleteCredential(deserialized);
+      await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
 
-    const reLoaded = repository.loadCredentials();
-    expect(reLoaded.length).toEqual(0);
+      // create dummy file
+      fs.writeFileSync(path.join(TEST_CREDENTIALS_DIR, "dummy"), "dummy");
+
+      const reLoaded = repository.loadCredentials();
+      expect(reLoaded.length).toEqual(0);
+    } finally {
+      fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
+    }
   });
 });

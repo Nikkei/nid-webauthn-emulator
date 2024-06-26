@@ -1,4 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
+import type { AuthenticatorOptions } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import {
@@ -7,6 +8,8 @@ import {
   RpId,
   packAttestationObject,
   parsePublicKeyCredentialSourceFromJSON,
+  toFido2CreateOptions,
+  toFido2RequestOptions,
   toPublickeyCredentialSourceJSON,
   unpackAttestationObject,
 } from "../../src/webauthn/webauthn-model";
@@ -54,7 +57,7 @@ describe("WebAuthn Model Test", () => {
     expect(unpacked).toEqual(testData);
   });
 
-  test("Undefined User Handle serialize test", async () => {
+  test("Undefined User Handle PublicKey serialize test", async () => {
     const testData: PublicKeyCredentialSource = {
       type: "public-key",
       id: new Uint8Array([116, 101, 115, 116, 45, 99]),
@@ -66,4 +69,48 @@ describe("WebAuthn Model Test", () => {
     const model = parsePublicKeyCredentialSourceFromJSON(json);
     expect(model).toEqual(testData);
   });
+
+  test.each([
+    [
+      { residentKey: "required", userVerification: "required" },
+      { rk: true, uv: true, up: true },
+    ],
+    [
+      { residentKey: "preferred", userVerification: "preferred" },
+      { rk: true, uv: true, up: true },
+    ],
+    [
+      { residentKey: "discouraged", userVerification: "discouraged" },
+      { rk: false, uv: false, up: true },
+    ],
+    [
+      { requireResidentKey: true, userVerification: "preferred" },
+      { rk: true, uv: true, up: true },
+    ],
+    [
+      { residentKey: "discouraged", userVerification: "preferred" },
+      { rk: false, uv: true, up: true },
+    ],
+    [
+      { requireResidentKey: false, userVerification: "preferred" },
+      { rk: false, uv: true, up: true },
+    ],
+  ] as [AuthenticatorSelectionCriteria, AuthenticatorOptions][])(
+    "toFido2CreateOptions test: $a",
+    (criteria, expected) => {
+      expect(toFido2CreateOptions(criteria)).toEqual(expected);
+    },
+  );
+
+  test.each([
+    ["required", true],
+    ["preferred", true],
+    ["discouraged", false],
+    [undefined, false],
+  ] as [UserVerificationRequirement | undefined, boolean][])(
+    "UserVerificationRequirement test: $a",
+    (criteria, expected) => {
+      expect(toFido2RequestOptions(criteria).uv).toEqual(expected);
+    },
+  );
 });

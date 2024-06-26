@@ -8,6 +8,7 @@ import type { Config } from "jest";
 const config: Config = {
   clearMocks: true,
   coverageProvider: "v8",
+  coveragePathIgnorePatterns: ["/node_modules/", "/spec/"],
   transform: {
     "^.+\\.(ts|tsx)$": "ts-jest",
   },
