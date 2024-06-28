@@ -1,6 +1,6 @@
 {
   "name": "@nikkei/nid-webauthn-emulator",
-  "version": "0.0.10",
+  "version": "0.1.0",
   "keywords": ["test", "e2e", "passkeys"],
   "repository": "https://github.com/Nikkei/nid-webauthn-emulator.git",
   "files": ["dist"],
