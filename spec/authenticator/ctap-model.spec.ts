@@ -63,7 +63,7 @@ describe("CTAP Model Test", () => {
 
   test("MakeCredentialResponse CTAP Object pack and unpack", async () => {
     const testResponse: AuthenticatorMakeCredentialResponse = {
-      fmt: "packed",
+      fmt: "none",
       attStmt: {},
       authData: new Uint8Array([97, 117, 116, 104, 68, 97, 116, 97]),
     };
