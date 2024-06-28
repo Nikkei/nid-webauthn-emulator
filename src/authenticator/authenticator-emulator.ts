@@ -168,7 +168,7 @@ export class AuthenticatorEmulator {
     this.addCredential(credential, discoverable);
 
     return {
-      fmt: "packed",
+      fmt: "none",
       authData: packAuthenticatorData(credential.authenticatorData),
       attStmt: {},
     };
