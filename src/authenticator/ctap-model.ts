@@ -11,7 +11,7 @@ export type AuthenticatorInteractionOptions = {
   uv: boolean;
 };
 
-/** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorMakeCredential */
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialRequest {
   clientDataHash: Uint8Array;
   rp: PublicKeyCredentialRpEntity & { id: string };
@@ -24,14 +24,14 @@ export interface AuthenticatorMakeCredentialRequest {
   pinProtocol?: number;
 }
 
-/** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorMakeCredential */
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialResponse {
   fmt: string;
   authData: Uint8Array;
   attStmt: object;
 }
 
-/** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorGetAssertion */
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion */
 export interface AuthenticatorGetAssertionRequest {
   rpId: string;
   clientDataHash: Uint8Array;
@@ -42,7 +42,7 @@ export interface AuthenticatorGetAssertionRequest {
   pinProtocol?: number;
 }
 
-/** @see https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.html#authenticatorGetAssertion */
+/** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion */
 export interface AuthenticatorGetAssertionResponse {
   credential?: PublicKeyCredentialDescriptor;
   authData: Uint8Array;
