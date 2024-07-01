@@ -82,4 +82,17 @@ describe("Credential Repository Test", () => {
       fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
     }
   });
+
+  test("Undefined User Test", async () => {
+    const userUndefinedCredentialJSON: PasskeyCredentialJSON = {
+      ...testCredentialJSON,
+      user: undefined,
+    };
+
+    const deserialized = deserializeCredential(JSON.stringify(userUndefinedCredentialJSON));
+    const serialization = serializeCredential(deserialized);
+    const reDeserialized = deserializeCredential(serialization);
+
+    expect(reDeserialized).toEqual(deserialized);
+  });
 });
