@@ -134,7 +134,10 @@ export class AuthenticatorEmulator {
     };
   }
 
-  /** @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred */
+  /**
+   * @see https://www.w3.org/TR/webauthn/#sctn-op-make-cred
+   * @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorMakeCredential
+   **/
   public authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse {
     const rpId = new RpId(request.rp.id);
 
@@ -174,7 +177,10 @@ export class AuthenticatorEmulator {
     };
   }
 
-  /** @see https://www.w3.org/TR/webauthn/#sctn-op-get-assertion */
+  /**
+   * @see https://www.w3.org/TR/webauthn/#sctn-op-get-assertion
+   * @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion
+   **/
   public authenticatorGetAssertion(request: AuthenticatorGetAssertionRequest): AuthenticatorGetAssertionResponse {
     const rpId = new RpId(request.rpId);
 
