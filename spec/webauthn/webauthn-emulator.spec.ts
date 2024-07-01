@@ -27,7 +27,7 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     await testServer.getRegistrationVerification(user, credential2);
 
     // Last Credentials only
-    const credentialRecords = emulator.authenticator.params.credentialsRepository.loadCredentials();
+    const credentialRecords = emulator.authenticator.params.credentialsRepository?.loadCredentials() ?? [];
     expect(credentialRecords.length).toBe(1);
     expect(EncodeUtils.encodeBase64Url(credentialRecords[0].publicKeyCredentialSource.id)).toBe(credential2.id);
   });
@@ -201,13 +201,26 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
   test("Only one credential is allowed and RP ID is undefined _ credential is undefined and OK", async () => {
     const [emulator, testServer] = await createCredential();
     const options = await testServer.getAuthenticationOptions();
-    const credential = emulator.authenticator.params.credentialsRepository.loadCredentials()[0];
+    const credential = (emulator.authenticator.params.credentialsRepository?.loadCredentials() ?? [])[0];
     emulator.getJSON(TEST_RP_ORIGIN, {
       ...options,
       rpId: undefined,
 
       allowCredentials: [toPublicKeyCredentialDescriptorJSON(credential.publicKeyCredentialDescriptor)],
     } as PublicKeyCredentialRequestOptionsJSON);
+  });
+
+  test("Stateless Authenticator Test _ OK", async () => {
+    const authenticator = new AuthenticatorEmulator({ stateless: true });
+    const [emulator, testServer] = await createCredential(authenticator);
+    const options = await testServer.getAuthenticationOptions();
+    const credential = emulator.getJSON(TEST_RP_ORIGIN, options);
+    await testServer.getAuthenticationVerification(credential);
+
+    const credentialRecords = emulator.authenticator.params.credentialsRepository?.loadCredentials() ?? [];
+    const authData = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential.response.authenticatorData));
+    expect(credentialRecords.length).toBe(0);
+    expect(authData.signCount).toBe(0);
   });
 });
 
