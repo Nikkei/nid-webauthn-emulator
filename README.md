@@ -84,9 +84,9 @@ const authenticatorRequest = packMakeCredentialRequest({
 const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
 ```
 
-## WebAuthn.io での実行例
+## [WebAuthn.io](https://webauthn.io/) での実行例
 
-[統合テスト](spec/integration/integration.spec.ts) に使用例があります。
+WebAuthn の著名なデモサイトである [webauthn.io](https://webauthn.io/) での使用例を示します。[統合テスト](spec/integration/integration.spec.ts) に実際にうごくテストコード例があります。
 
 ```TypeScript
 // Origin および WebAuthn API エミュレータを初期化します
