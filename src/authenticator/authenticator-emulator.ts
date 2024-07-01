@@ -1,4 +1,4 @@
-import { createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { createCipheriv, createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import EncodeUtils from "../libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
 import type { PasskeyCredential, PasskeysCredentialsRepository } from "../repository/credentials-repository";
@@ -52,7 +52,8 @@ export type AuthenticatorParameters = {
     user: PublicKeyCredentialUserEntity | undefined,
     options?: Partial<AuthenticatorOptions>,
   ) => InteractionResponse | undefined;
-  readonly credentialsRepository: PasskeysCredentialsRepository;
+  readonly credentialsRepository: PasskeysCredentialsRepository | undefined;
+  readonly stateless: boolean;
 };
 
 export type MakeCredentialInteraction = (user: PublicKeyCredentialUserEntity, uv: boolean) => boolean;
@@ -61,11 +62,7 @@ export type MakeCredentialInteraction = (user: PublicKeyCredentialUserEntity, uv
  * Authenticator emulator
  */
 export class AuthenticatorEmulator {
-  private static readonly DEFAULT_USER = {
-    id: new Uint8Array(16),
-    name: "Anonymous NID Authenticator User",
-    displayName: "Anonymous NID Authenticator User",
-  };
+  private static readonly ENCRYPT_KEY = EncodeUtils.strToUint8Array("NID-AUTH-31415926535897932384626");
 
   /** Authenticator Attestation Global Unique Identifier (16byte)  */
   private static readonly DEFAULT_AAGUID = EncodeUtils.strToUint8Array("NID-AUTH-3141592");
@@ -83,6 +80,7 @@ export class AuthenticatorEmulator {
   });
 
   private static readonly DEFAULT_CREDENTIALS_REPOSITORY = new PasskeysCredentialsMemoryRepository();
+  private static readonly DEFAULT_STATELESS = false;
   public params: AuthenticatorParameters;
 
   constructor(params: Partial<AuthenticatorParameters> = {}) {
@@ -90,13 +88,16 @@ export class AuthenticatorEmulator {
       aaguid: params.aaguid ?? AuthenticatorEmulator.DEFAULT_AAGUID,
       transports: params.transports ?? AuthenticatorEmulator.DEFAULT_TRANSPORTS,
       algorithmIdentifiers: params.algorithmIdentifiers ?? AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
-      signCounterIncrement: params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
+      signCounterIncrement: params.stateless
+        ? 0
+        : params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
       verifications: params.verifications ?? AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
       userMakeCredentialInteraction:
         params.userMakeCredentialInteraction ?? AuthenticatorEmulator.DEFAULT_MAKE_CREDENTIAL_INTERACTION,
       userGetAssertionInteraction:
         params.userGetAssertionInteraction ?? AuthenticatorEmulator.DEFAULT_GET_ASSERTION_INTERACTION,
-      credentialsRepository: params.credentialsRepository ?? AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY,
+      credentialsRepository: params.stateless ? undefined : AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY,
+      stateless: params.stateless ?? AuthenticatorEmulator.DEFAULT_STATELESS,
     };
   }
 
@@ -140,10 +141,11 @@ export class AuthenticatorEmulator {
    **/
   public authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse {
     const rpId = new RpId(request.rp.id);
+    const repository = this.params.credentialsRepository;
 
     // Exclude list
-    if (request.excludeList && request.excludeList.length > 0) {
-      const existingCredentials = this.getCredentials(rpId, request.excludeList);
+    if (request.excludeList && request.excludeList.length > 0 && repository) {
+      const existingCredentials = getCredentials(rpId, request.excludeList, repository);
       if (existingCredentials.length > 0) {
         throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED);
       }
@@ -159,16 +161,18 @@ export class AuthenticatorEmulator {
     if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Create credential
-    const discoverable = request.options?.rk ?? true;
     const credential = makeCredential(
       this.params.aaguid,
       rpId,
       alg,
       this.params.transports,
       interactionResponse,
-      discoverable,
+      repository ? undefined : AuthenticatorEmulator.ENCRYPT_KEY,
     );
-    this.addCredential(credential, discoverable);
+    if (repository) {
+      const discoverable = request.options?.rk ?? true;
+      saveCredential(credential, discoverable, repository);
+    }
 
     return {
       fmt: "none",
@@ -183,9 +187,13 @@ export class AuthenticatorEmulator {
    **/
   public authenticatorGetAssertion(request: AuthenticatorGetAssertionRequest): AuthenticatorGetAssertionResponse {
     const rpId = new RpId(request.rpId);
+    const repository = this.params.credentialsRepository;
+    const allowList = request.allowList ?? [];
 
     // Allow list
-    const credentials = this.getCredentials(rpId, request.allowList ?? []);
+    const credentials = repository
+      ? getCredentials(rpId, allowList, repository)
+      : getCredentialsStateless(rpId, allowList, AuthenticatorEmulator.ENCRYPT_KEY);
     if (credentials.length === 0) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
     const credential = credentials[credentials.length - 1];
 
@@ -194,17 +202,27 @@ export class AuthenticatorEmulator {
     if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Get assertion
-    const newSignCount = credential.authenticatorData.signCount + this.params.signCounterIncrement;
-    const { authData, signature } = getAssertion(request.clientDataHash, newSignCount, credential, interactionResponse);
+    const newSignCount = !repository ? 0 : credential.authenticatorData.signCount + this.params.signCounterIncrement;
+    const { authData, signature } = getAssertion(
+      rpId.hash,
+      request.clientDataHash,
+      newSignCount,
+      credential.publicKeyCredentialSource,
+      interactionResponse,
+      !repository,
+    );
 
     // Update sign count
-    this.params.credentialsRepository.saveCredential({
-      ...credential,
-      authenticatorData: {
-        ...credential.authenticatorData,
-        signCount: newSignCount,
-      },
-    });
+    if (repository) {
+      const updatedCredential = {
+        ...credential,
+        authenticatorData: {
+          ...credential.authenticatorData,
+          signCount: newSignCount,
+        },
+      };
+      saveCredential(updatedCredential, true, repository);
+    }
 
     return {
       credential: request.allowList?.length === 1 ? undefined : credential.publicKeyCredentialDescriptor,
@@ -214,51 +232,92 @@ export class AuthenticatorEmulator {
       numberOfCredentials: credentials.length,
     };
   }
+}
 
-  private getCredentials(rpId: RpId, credentialsFilter: PublicKeyCredentialDescriptor[]): PasskeyCredential[] {
-    const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.encodeBase64Url(descriptor.id)));
-    const credentials = this.params.credentialsRepository.loadCredentials();
-    return credentials.filter((credential) => {
-      if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
-      if (credentialsFilter.length > 0) {
-        const rawId = credential.publicKeyCredentialDescriptor.id;
-        if (!allowIds?.has(EncodeUtils.encodeBase64Url(rawId))) return false;
-      }
-      return true;
-    });
-  }
+function getCredentialsStateless(
+  rpId: RpId,
+  allowCredentials: PublicKeyCredentialDescriptor[],
+  key: Uint8Array,
+): PasskeyCredential[] {
+  return allowCredentials.map((descriptor) => {
+    const id = EncodeUtils.bufferSourceToUint8Array(descriptor.id);
+    const publicKeyCredentialSource: PublicKeyCredentialSource = {
+      type: "public-key",
+      id,
+      privateKey: decryptBytes(key, id),
+      rpId: rpId,
+    };
+    const authData: AuthenticatorData = {
+      rpIdHash: rpId.hash,
+      flags: {
+        backupEligibility: false,
+        backupState: false,
+        userPresent: true,
+        userVerified: true,
+        attestedCredentialData: false,
+        extensionData: false,
+      },
+      signCount: 0,
+    };
 
-  private addCredential(credential: PasskeyCredential, rk: boolean): void {
-    const credentials = this.params.credentialsRepository.loadCredentials();
-    if (rk) {
-      const index = credentials.findIndex((c) => {
-        if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
-        if (c.user?.id && credential.user?.id) {
-          if (EncodeUtils.encodeBase64Url(c.user.id) === EncodeUtils.encodeBase64Url(credential.user.id)) return true;
-        }
-        return false;
-      });
-      if (index >= 0) {
-        this.params.credentialsRepository.deleteCredential(credentials[index]);
-      }
+    return {
+      publicKeyCredentialDescriptor: descriptor,
+      publicKeyCredentialSource,
+      authenticatorData: authData,
+      user: undefined,
+    };
+  });
+}
+
+function getCredentials(
+  rpId: RpId,
+  credentialsFilter: PublicKeyCredentialDescriptor[],
+  repository: PasskeysCredentialsRepository,
+): PasskeyCredential[] {
+  const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.encodeBase64Url(descriptor.id)));
+  const credentials = repository.loadCredentials();
+  return credentials.filter((credential) => {
+    if (rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
+    if (credentialsFilter.length > 0) {
+      const rawId = credential.publicKeyCredentialDescriptor.id;
+      if (!allowIds?.has(EncodeUtils.encodeBase64Url(rawId))) return false;
     }
-    this.params.credentialsRepository.saveCredential(credential);
+    return true;
+  });
+}
+
+function saveCredential(credential: PasskeyCredential, rk: boolean, repository: PasskeysCredentialsRepository): void {
+  const credentials = repository.loadCredentials();
+  if (rk) {
+    const index = credentials.findIndex((c) => {
+      if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
+      if (c.user?.id && credential.user?.id) {
+        if (EncodeUtils.encodeBase64Url(c.user.id) === EncodeUtils.encodeBase64Url(credential.user.id)) return true;
+      }
+      return false;
+    });
+    if (index >= 0) {
+      repository.deleteCredential(credentials[index]);
+    }
   }
+  repository.saveCredential(credential);
 }
 
 function getAssertion(
+  rpIdHash: Uint8Array,
   clientDataHash: Uint8Array,
   newSignCounter: number,
-  credential: PasskeyCredential,
+  credential: PublicKeyCredentialSource,
   interactionResponse: InteractionResponse,
+  stateless: boolean,
 ): { authData: Uint8Array; signature: Uint8Array } {
   const authenticatorData = {
-    rpIdHash: credential.authenticatorData.rpIdHash,
+    rpIdHash,
     flags: {
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
-      backupEligibility: credential.authenticatorData.flags.backupEligibility,
-      backupState: true,
+      backupEligibility: !stateless,
+      backupState: !stateless,
       attestedCredentialData: false,
       extensionData: false,
     },
@@ -272,7 +331,7 @@ function getAssertion(
   const privateKey = createPrivateKey({
     format: "der",
     type: "pkcs8",
-    key: credential.publicKeyCredentialSource.privateKey as Buffer,
+    key: credential.privateKey as Buffer,
   });
 
   const signature = sign(null, new Uint8Array(payload), privateKey);
@@ -285,7 +344,7 @@ function makeCredential(
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
   interactionResponse: InteractionResponse,
-  discoverable: boolean,
+  statelessKey: Uint8Array | undefined,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -293,15 +352,17 @@ function makeCredential(
     return generateKeyPairSync("ec", { namedCurve: "P-256" });
   };
 
-  const credentialId = new Uint8Array(randomBytes(32));
   const keyPair = generatekeyPair(alg);
+  const privateKey = new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" }));
+  const credentialId = statelessKey ? encryptBytes(statelessKey, privateKey) : new Uint8Array(randomBytes(32));
+
   const publicKeyCredentialSource: PublicKeyCredentialSource = {
     type: "public-key",
     id: credentialId,
     privateKey: new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" })),
     rpId: rpId,
     userHandle:
-      interactionResponse.user && discoverable
+      interactionResponse.user && !statelessKey
         ? EncodeUtils.bufferSourceToUint8Array(interactionResponse.user.id)
         : undefined,
   };
@@ -315,8 +376,8 @@ function makeCredential(
   const authenticatorData: AuthenticatorData = {
     rpIdHash: rpId.hash,
     flags: {
-      backupEligibility: true,
-      backupState: false,
+      backupEligibility: !statelessKey,
+      backupState: !statelessKey,
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
       attestedCredentialData: true,
@@ -333,6 +394,20 @@ function makeCredential(
     publicKeyCredentialDescriptor,
     publicKeyCredentialSource,
     authenticatorData,
-    user: discoverable ? interactionResponse.user : undefined,
+    user: statelessKey ? undefined : interactionResponse.user,
   };
+}
+
+function encryptBytes(key: Uint8Array, data: Uint8Array): Uint8Array {
+  const iv = randomBytes(16);
+  const cipher = createCipheriv("aes-256-ctr", key, iv);
+  const encrypted = cipher.update(data);
+  return Buffer.concat([iv, encrypted, cipher.final()]);
+}
+
+function decryptBytes(key: Uint8Array, data: Uint8Array): Uint8Array {
+  const iv = data.slice(0, 16);
+  const encrypted = data.slice(16);
+  const cipher = createCipheriv("aes-256-ctr", key, iv);
+  return Buffer.concat([cipher.update(encrypted), cipher.final()]);
 }
