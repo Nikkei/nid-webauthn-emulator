@@ -2,13 +2,13 @@
 
 ## 概要
 
-[Authenticator Emulator](../src/authenticator/authenticator-emulator.ts)は、FIDO2 準拠の認証器をソフトウェアでシミュレートするためのツールです。主に WebAuthn 実装のテストや開発に使用することを想定しています。
+[Authenticator Emulator](../src/authenticator/authenticator-emulator.ts)は、FIDO2 準拠の Authenticator をソフトウェアでシミュレートするためのツールです。主に WebAuthn 実装のテストや開発に使用することを想定しています。
 
 ## 主要クラス
 
 ### AuthenticatorEmulator
 
-CTAP プロトコルに基づいた認証器の主要な機能を模倣するクラスです。
+CTAP プロトコルに基づいた Authenticator の主要な機能をエミュレートするクラスです。
 
 #### 主要メソッド
 
@@ -18,7 +18,7 @@ CTAP プロトコルに基づいた認証器の主要な機能を模倣するク
 
 2. `authenticatorGetInfo(): AuthenticatorGetInfoResponse`
 
-   - 認証器の情報を返します。
+   - Authenticator の情報を返します。
 
 3. `authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse`
 
@@ -33,13 +33,13 @@ CTAP プロトコルに基づいた認証器の主要な機能を模倣するク
 
 2. **認証**: `authenticatorGetAssertion`メソッドを使用して、既存の資格情報を用いた認証プロセスをシミュレートします。
 
-3. **認証器情報の取得**: `authenticatorGetInfo`メソッドで認証器の詳細情報を取得できます。
+3. **認証器情報の取得**: `authenticatorGetInfo`メソッドで Authenticator の詳細情報を取得できます。
 
 4. **CTAP コマンドの処理**: `command`メソッドで CTAP プロトコルに基づいたコマンドを処理します。
 
-5. **カスタマイズ可能なパラメータ**: AAGUID やサポートするアルゴリズム、ユーザー操作のシミュレーションなど、様々な認証器のパラメータをカスタマイズできます。
+5. **カスタマイズ可能なパラメータ**: AAGUID やサポートするアルゴリズム、ユーザー操作のシミュレーションなど、様々なパラメータをカスタマイズできます。
 
-6. **ステートレスモード**: 認証器の状態を保持せず、各コマンドの処理を独立して行います。
+6. **ステートレスモード**: Authenticator の状態を保持せず、各コマンドの処理を独立して行います。
 
 ## セキュリティ考慮事項
 
@@ -52,7 +52,7 @@ CTAP プロトコルに基づいた認証器の主要な機能を模倣するク
 
 ## 注意事項
 
-1. このエミュレータは実際のハードウェア認証器の完全な代替ではありません。テストと開発目的にのみ使用してください。
+1. このエミュレータは実際のハードウェア Authenticator の完全な代替ではありません。テストと開発目的にのみ使用してください。
 
 2. 実際の実装では、より厳密なセキュリティチェックと本番環境に適した設定が必要になる場合があります。
 
