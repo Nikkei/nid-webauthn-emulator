@@ -18,34 +18,34 @@ import {
   toPublicKeyCredentialUserEntityJSON,
 } from "../webauthn/webauthn-model-json";
 
-export type PasskeyCredential = {
+export type PasskeyDiscoverableCredential = {
   readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
   readonly publicKeyCredentialSource: PublicKeyCredentialSource;
   readonly authenticatorData: AuthenticatorData;
-  readonly user: PublicKeyCredentialUserEntity | undefined;
+  readonly user: PublicKeyCredentialUserEntity;
 };
 
-export type PasskeyCredentialJSON = {
+export type PasskeyDiscoverableCredentialJSON = {
   publicKeyCredentialDescriptor: PublicKeyCredentialDescriptorJSON;
   publicKeyCredentialSource: PublicKeyCredentialSourceJSON;
   authenticatorData: string;
-  user?: PublicKeyCredentialUserEntityJSON;
+  user: PublicKeyCredentialUserEntityJSON;
 };
 
 /**
  * Passkey credentials repository
  */
 export interface PasskeysCredentialsRepository {
-  saveCredential(credential: PasskeyCredential): void;
-  deleteCredential(credential: PasskeyCredential): void;
-  loadCredentials(): PasskeyCredential[];
+  saveCredential(credential: PasskeyDiscoverableCredential): void;
+  deleteCredential(credential: PasskeyDiscoverableCredential): void;
+  loadCredentials(): PasskeyDiscoverableCredential[];
 }
 
 /**
  * Get the ID of a credential
  * @param credential Credential
  */
-export function getRepositoryId(credential: PasskeyCredential): string {
+export function getRepositoryId(credential: PasskeyDiscoverableCredential): string {
   return EncodeUtils.encodeBase64Url(credential.publicKeyCredentialDescriptor.id);
 }
 
@@ -54,12 +54,12 @@ export function getRepositoryId(credential: PasskeyCredential): string {
  * @param credential Credential
  * @returns { id: Credential ID; data: JSON Credential }
  */
-export function serializeCredential(credential: PasskeyCredential): string {
+export function serializeCredential(credential: PasskeyDiscoverableCredential): string {
   const serialized = {
     publicKeyCredentialDescriptor: toPublicKeyCredentialDescriptorJSON(credential.publicKeyCredentialDescriptor),
     publicKeyCredentialSource: toPublickeyCredentialSourceJSON(credential.publicKeyCredentialSource),
     authenticatorData: EncodeUtils.encodeBase64Url(packAuthenticatorData(credential.authenticatorData)),
-    user: credential.user ? toPublicKeyCredentialUserEntityJSON(credential.user) : undefined,
+    user: toPublicKeyCredentialUserEntityJSON(credential.user),
   };
   return JSON.stringify(serialized, null, 2);
 }
@@ -69,12 +69,12 @@ export function serializeCredential(credential: PasskeyCredential): string {
  * @param data JSON string
  * @returns Credential
  */
-export function deserializeCredential(data: string): PasskeyCredential {
-  const serialized = JSON.parse(data) as PasskeyCredentialJSON;
+export function deserializeCredential(data: string): PasskeyDiscoverableCredential {
+  const serialized = JSON.parse(data) as PasskeyDiscoverableCredentialJSON;
   return {
     publicKeyCredentialDescriptor: parsePublicKeyCredentialDescriptorFromJSON(serialized.publicKeyCredentialDescriptor),
     publicKeyCredentialSource: parsePublicKeyCredentialSourceFromJSON(serialized.publicKeyCredentialSource),
     authenticatorData: unpackAuthenticatorData(EncodeUtils.decodeBase64Url(serialized.authenticatorData)),
-    user: serialized.user ? parsePublicKeyCredentialUserEntityFromJSON(serialized.user) : undefined,
+    user: parsePublicKeyCredentialUserEntityFromJSON(serialized.user),
   };
 }
