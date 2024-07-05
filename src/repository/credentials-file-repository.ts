@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
-  type PasskeyCredential,
+  type PasskeyDiscoverableCredential,
   type PasskeysCredentialsRepository,
   deserializeCredential,
   getRepositoryId,
@@ -16,19 +16,19 @@ export class PasskeysCredentialsFileRepository implements PasskeysCredentialsRep
     fs.mkdirSync(credentialsDir, { recursive: true });
   }
 
-  saveCredential(credential: PasskeyCredential): void {
+  saveCredential(credential: PasskeyDiscoverableCredential): void {
     const id = getRepositoryId(credential);
     const filename = path.join(this.credentialsDir, `${id}.json`);
     const serialized = serializeCredential(credential);
     fs.writeFileSync(filename, serialized);
   }
 
-  deleteCredential(credential: PasskeyCredential): void {
+  deleteCredential(credential: PasskeyDiscoverableCredential): void {
     const id = getRepositoryId(credential);
     const filename = path.join(this.credentialsDir, `${id}.json`);
     fs.unlink(filename, () => {});
   }
-  loadCredentials(): PasskeyCredential[] {
+  loadCredentials(): PasskeyDiscoverableCredential[] {
     const files = fs.readdirSync(this.credentialsDir);
     return files.flatMap((file) => {
       try {

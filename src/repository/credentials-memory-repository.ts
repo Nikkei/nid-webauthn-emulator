@@ -1,5 +1,5 @@
 import {
-  type PasskeyCredential,
+  type PasskeyDiscoverableCredential,
   type PasskeysCredentialsRepository,
   deserializeCredential,
   getRepositoryId,
@@ -9,18 +9,18 @@ import {
 export class PasskeysCredentialsMemoryRepository implements PasskeysCredentialsRepository {
   private readonly credentials: Map<string, string> = new Map();
 
-  saveCredential(credential: PasskeyCredential): void {
+  saveCredential(credential: PasskeyDiscoverableCredential): void {
     const id = getRepositoryId(credential);
     const serialized = serializeCredential(credential);
     this.credentials.set(id, serialized);
   }
 
-  deleteCredential(credential: PasskeyCredential): void {
+  deleteCredential(credential: PasskeyDiscoverableCredential): void {
     const id = getRepositoryId(credential);
     this.credentials.delete(id);
   }
 
-  loadCredentials(): PasskeyCredential[] {
+  loadCredentials(): PasskeyDiscoverableCredential[] {
     return Array.from(this.credentials.values()).map((serialized) => deserializeCredential(serialized));
   }
 }

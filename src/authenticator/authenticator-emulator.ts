@@ -1,7 +1,10 @@
 import { createCipheriv, createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import EncodeUtils from "../libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
-import type { PasskeyCredential, PasskeysCredentialsRepository } from "../repository/credentials-repository";
+import type {
+  PasskeyDiscoverableCredential,
+  PasskeysCredentialsRepository,
+} from "../repository/credentials-repository";
 import { CoseKey } from "../webauthn/cose-key";
 import {
   type AuthenticatorData,
@@ -28,7 +31,6 @@ import {
 } from "./ctap-model";
 
 type InteractionResponse = {
-  user?: PublicKeyCredentialUserEntity;
   options: { uv: boolean; up: boolean };
 };
 
@@ -36,6 +38,13 @@ export const COSEAlgorithmIdentifier = {
   ES256: -7,
   RS256: -257,
   EdDSA: -8,
+};
+
+export type PasskeyCredential = {
+  readonly publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor;
+  readonly publicKeyCredentialSource: PublicKeyCredentialSource;
+  readonly authenticatorData: AuthenticatorData;
+  readonly user: PublicKeyCredentialUserEntity | undefined;
 };
 
 export type AuthenticatorParameters = {
@@ -167,11 +176,15 @@ export class AuthenticatorEmulator {
       alg,
       this.params.transports,
       interactionResponse,
+      request.user,
       repository ? undefined : AuthenticatorEmulator.ENCRYPT_KEY,
     );
     if (repository) {
-      const discoverable = request.options?.rk ?? true;
-      saveCredential(credential, discoverable, repository);
+      const discoverableCredential: PasskeyDiscoverableCredential = {
+        ...credential,
+        user: request.user,
+      };
+      saveCredential(discoverableCredential, repository);
     }
 
     return {
@@ -213,22 +226,23 @@ export class AuthenticatorEmulator {
     );
 
     // Update sign count
-    if (repository) {
-      const updatedCredential = {
+    if (repository && credential.user) {
+      const updatedCredential: PasskeyDiscoverableCredential = {
         ...credential,
         authenticatorData: {
           ...credential.authenticatorData,
           signCount: newSignCount,
         },
+        user: credential.user,
       };
-      saveCredential(updatedCredential, true, repository);
+      saveCredential(updatedCredential, repository);
     }
 
     return {
       credential: request.allowList?.length === 1 ? undefined : credential.publicKeyCredentialDescriptor,
       authData,
       signature,
-      user: interactionResponse.user,
+      user: credential.user,
       numberOfCredentials: credentials.length,
     };
   }
@@ -273,7 +287,7 @@ function getCredentials(
   rpId: RpId,
   credentialsFilter: PublicKeyCredentialDescriptor[],
   repository: PasskeysCredentialsRepository,
-): PasskeyCredential[] {
+): PasskeyDiscoverableCredential[] {
   const allowIds = new Set(credentialsFilter.map((descriptor) => EncodeUtils.encodeBase64Url(descriptor.id)));
   const credentials = repository.loadCredentials();
   return credentials.filter((credential) => {
@@ -286,19 +300,14 @@ function getCredentials(
   });
 }
 
-function saveCredential(credential: PasskeyCredential, rk: boolean, repository: PasskeysCredentialsRepository): void {
+function saveCredential(credential: PasskeyDiscoverableCredential, repository: PasskeysCredentialsRepository): void {
   const credentials = repository.loadCredentials();
-  if (rk) {
-    const index = credentials.findIndex((c) => {
-      if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
-      if (c.user?.id && credential.user?.id) {
-        if (EncodeUtils.encodeBase64Url(c.user.id) === EncodeUtils.encodeBase64Url(credential.user.id)) return true;
-      }
-      return false;
-    });
-    if (index >= 0) {
-      repository.deleteCredential(credentials[index]);
-    }
+  const index = credentials.findIndex((c) => {
+    if (c.publicKeyCredentialSource.rpId.value !== credential.publicKeyCredentialSource.rpId.value) return false;
+    return EncodeUtils.encodeBase64Url(c.user.id) === EncodeUtils.encodeBase64Url(credential.user.id);
+  });
+  if (index >= 0) {
+    repository.deleteCredential(credentials[index]);
   }
   repository.saveCredential(credential);
 }
@@ -344,6 +353,7 @@ function makeCredential(
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
   interactionResponse: InteractionResponse,
+  user: PublicKeyCredentialUserEntity | undefined,
   statelessKey: Uint8Array | undefined,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
@@ -361,10 +371,7 @@ function makeCredential(
     id: credentialId,
     privateKey: new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" })),
     rpId: rpId,
-    userHandle:
-      interactionResponse.user && !statelessKey
-        ? EncodeUtils.bufferSourceToUint8Array(interactionResponse.user.id)
-        : undefined,
+    userHandle: user && !statelessKey ? EncodeUtils.bufferSourceToUint8Array(user.id) : undefined,
   };
 
   const publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor = {
@@ -394,7 +401,7 @@ function makeCredential(
     publicKeyCredentialDescriptor,
     publicKeyCredentialSource,
     authenticatorData,
-    user: statelessKey ? undefined : interactionResponse.user,
+    user,
   };
 }
 

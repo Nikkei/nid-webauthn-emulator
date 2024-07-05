@@ -4,13 +4,13 @@ import { describe, expect, test } from "@jest/globals";
 import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import {
-  type PasskeyCredentialJSON,
+  type PasskeyDiscoverableCredentialJSON,
   deserializeCredential,
   serializeCredential,
 } from "../../src/repository/credentials-repository";
 
 describe("Credential Repository Test", () => {
-  const testCredentialJSON: PasskeyCredentialJSON = {
+  const testCredentialJSON: PasskeyDiscoverableCredentialJSON = {
     publicKeyCredentialDescriptor: {
       id: "9gd8oypZ_ccpqhk3RBjUp85EOK4NA1wtEkU7zr_BOd8",
       type: "public-key",
@@ -81,18 +81,5 @@ describe("Credential Repository Test", () => {
     } finally {
       fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
     }
-  });
-
-  test("Undefined User Test", async () => {
-    const userUndefinedCredentialJSON: PasskeyCredentialJSON = {
-      ...testCredentialJSON,
-      user: undefined,
-    };
-
-    const deserialized = deserializeCredential(JSON.stringify(userUndefinedCredentialJSON));
-    const serialization = serializeCredential(deserialized);
-    const reDeserialized = deserializeCredential(serialization);
-
-    expect(reDeserialized).toEqual(deserialized);
   });
 });
