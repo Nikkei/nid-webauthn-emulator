@@ -1,4 +1,4 @@
-name: Publish package to GitHub Packages
+name: Publish package
 
 on:
   release:
@@ -34,4 +34,4 @@ jobs:
       - name: Publish
         run: pnpm publish --no-git-checks
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{secrets.NPMJS_ACCESS_TOKEN}}
