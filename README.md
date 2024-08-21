@@ -12,10 +12,14 @@
 
 ## 使用方法
 
+```bash
+npm install nid-webauthn-emulator
+```
+
 基本的な使い方は `WebAuthnEmulator` クラスを作成し、`create` および `get` メソッドを利用することで、WebAuthn API における `navigator.credentials.create` および `navigator.credentials.get` をエミュレーションすることができます。
 
 ```TypeScript
-import WebAuthnEmulator from "@nikkei/nid-webauthn-emulator";
+import WebAuthnEmulator from "nid-webauthn-emulator";
 
 const emulator = new WebAuthnEmulator();
 const origin = "https://example.com";
@@ -47,7 +51,7 @@ emulator.getJSON(origin, requestOptionsJSON);
 これらの設定は下記のように `AuthenticatorEmulator` クラスを作成し、`WebAuthnEmulator` クラスに渡すことで、Authenticator の挙動を変更することができます。
 
 ```TypeScript
-import WebAuthnEmulator, { AuthenticatorEmulator } from "@nikkei/nid-webauthn-emulator";
+import WebAuthnEmulator, { AuthenticatorEmulator } from "nid-webauthn-emulator";
 
 const authenticator = new AuthenticatorEmulator({
   algorithmIdentifiers: ["ES256"],
@@ -119,7 +123,7 @@ import WebAuthnEmulator, {
   BrowserInjection,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
-} from "@nikkei/nid-webauthn-emulator";
+} from "nid-webauthn-emulator";
 
 async function startWebAuthnEmulator(page: Page, origin: string, debug = false) {
   const emulator = new WebAuthnEmulator();
