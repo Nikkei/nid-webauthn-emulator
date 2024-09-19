@@ -99,7 +99,7 @@ export class AuthenticatorEmulator {
       algorithmIdentifiers: params.algorithmIdentifiers ?? AuthenticatorEmulator.DEFAULT_ALGORITHM_IDENTIFIERS,
       signCounterIncrement: params.stateless
         ? 0
-        : params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT,
+        : (params.signCounterIncrement ?? AuthenticatorEmulator.DEFAULT_SIGN_COUNTER_INCREMENT),
       verifications: params.verifications ?? AuthenticatorEmulator.DEFAULT_VERIFICATIONS,
       userMakeCredentialInteraction:
         params.userMakeCredentialInteraction ?? AuthenticatorEmulator.DEFAULT_MAKE_CREDENTIAL_INTERACTION,
