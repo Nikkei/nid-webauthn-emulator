@@ -22,8 +22,8 @@ importers:
         specifier: ^29.7.0
         version: 29.7.0
       '@simplewebauthn/server':
-        specifier: ^10.0.1
-        version: 10.0.1
+        specifier: ^11.0.0
+        version: 11.0.0
       '@tsconfig/recommended':
         specifier: ^1.0.7
         version: 1.0.7
@@ -389,12 +389,12 @@ packages:
   '@peculiar/asn1-x509@2.3.8':
     resolution: {integrity: sha512-voKxGfDU1c6r9mKiN5ZUsZWh3Dy1BABvTM3cimf0tztNwyMJPhiXY94eRTgsMQe6ViLfT6EoXxkWVzcm3mFAFw==}
 
-  '@simplewebauthn/server@10.0.1':
-    resolution: {integrity: sha512-djNWcRn+H+6zvihBFJSpG3fzb0NQS9c/Mw5dYOtZ9H+oDw8qn9Htqxt4cpqRvSOAfwqP7rOvE9rwqVaoGGc3hg==}
+  '@simplewebauthn/server@11.0.0':
+    resolution: {integrity: sha512-zu8dxKcPiRUNSN2kmrnNOzNbRI8VaR/rL4ENCHUfC6PEE7SAAdIql9g5GBOd/wOVZolIsaZz3ccFxuGoVP0iaw==}
     engines: {node: '>=20.0.0'}
 
-  '@simplewebauthn/types@10.0.0':
-    resolution: {integrity: sha512-SFXke7xkgPRowY2E+8djKbdEznTVnD5R6GO7GPTthpHrokLvNKw8C3lFZypTxLI7KkCfGPfhtqB3d7OVGGa9jQ==}
+  '@simplewebauthn/types@11.0.0':
+    resolution: {integrity: sha512-b2o0wC5u2rWts31dTgBkAtSNKGX0cvL6h8QedNsKmj8O4QoLFQFR3DBVBUlpyVEhYKA+mXGUaXbcOc4JdQ3HzA==}
 
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
@@ -1910,7 +1910,7 @@ snapshots:
       pvtsutils: 1.3.5
       tslib: 2.6.3
 
-  '@simplewebauthn/server@10.0.1':
+  '@simplewebauthn/server@11.0.0':
     dependencies:
       '@hexagon/base64': 1.1.28
       '@levischuck/tiny-cbor': 0.2.2
@@ -1919,12 +1919,12 @@ snapshots:
       '@peculiar/asn1-rsa': 2.3.8
       '@peculiar/asn1-schema': 2.3.8
       '@peculiar/asn1-x509': 2.3.8
-      '@simplewebauthn/types': 10.0.0
+      '@simplewebauthn/types': 11.0.0
       cross-fetch: 4.0.0
     transitivePeerDependencies:
       - encoding
 
-  '@simplewebauthn/types@10.0.0': {}
+  '@simplewebauthn/types@11.0.0': {}
 
   '@sinclair/typebox@0.27.8': {}
 

@@ -71,10 +71,10 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     const registrationInfo = verification.registrationInfo;
     this.credentials.push({
       id: response.id,
-      publicKey: registrationInfo.credentialPublicKey,
+      publicKey: registrationInfo.credential.publicKey,
       user,
       webauthnUserID: user.id,
-      counter: verification.registrationInfo.counter,
+      counter: registrationInfo.credential.counter,
       backedUp: false,
       transports: undefined,
     });
@@ -101,9 +101,9 @@ export class WebAuthnTestServer implements PasskeysApiClient {
       expectedChallenge: (challenge) => this.challenges.has(challenge),
       expectedOrigin: this.origin,
       expectedRPID: this.rpID,
-      authenticator: {
-        credentialID: credential.id,
-        credentialPublicKey: credential.publicKey,
+      credential: {
+        id: credential.id,
+        publicKey: credential.publicKey,
         counter: credential.counter,
         transports: credential.transports,
       },
