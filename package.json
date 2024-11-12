@@ -25,7 +25,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
-    "cbor": "^10.0.2",
+    "cbor": "^10.0.3",
     "tldts": "^6.1.60"
   }
 }
