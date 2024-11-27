@@ -1,8 +1,9 @@
 import { describe, expect, test } from "@jest/globals";
-import type { AuthenticationResponseJSON } from "@simplewebauthn/server/script/deps";
+
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import {
+  type AuthenticationResponseJSON,
   type RegistrationResponseJSON,
   parseAuthenticationResponseFromJSON,
   parseCreationOptionsFromJSON,
