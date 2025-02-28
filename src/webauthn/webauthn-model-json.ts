@@ -235,6 +235,11 @@ export function parseRegistrationResponseFromJSON(options: RegistrationResponseJ
   };
 }
 
+export interface UnknownCredentialOptionsJSON {
+  rpId: string;
+  credentialId: Base64urlString;
+}
+
 export function parseAuthenticationResponseFromJSON(options: AuthenticationResponseJSON): RequestPublicKeyCredential {
   return {
     id: options.id,

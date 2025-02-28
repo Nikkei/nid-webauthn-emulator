@@ -82,6 +82,42 @@ export enum CTAP_COMMAND {
   authenticatorClientPIN = 0x06,
   authenticatorReset = 0x07,
   authenticatorGetNextAssertion = 0x08,
+  authenticatorCredentialManagement = 0x0a,
+}
+
+export enum CREDENTIAL_MANAGEMENT_SUBCOMMAND {
+  getCredsMetadata = 0x01,
+  enumerateRPsBegin = 0x02,
+  enumerateRPsGetNextRP = 0x03,
+  enumerateCredentialsBegin = 0x04,
+  enumerateCredentialsGetNextCredential = 0x05,
+  deleteCredential = 0x06,
+  updateUserInformation = 0x07,
+}
+
+export interface AuthenticatorCredentialManagementRequest {
+  subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND;
+  subCommandParams?: {
+    credentialId?: Uint8Array;
+    rpId?: string;
+    user?: PublicKeyCredentialUserEntity;
+  };
+  pinUvAuthProtocol?: number;
+  pinUvAuthParam?: Uint8Array;
+}
+
+export interface AuthenticatorCredentialManagementResponse {
+  existingResidentCredentialsCount?: number;
+  maxPossibleRemainingResidentCredentialsCount?: number;
+  rp?: PublicKeyCredentialRpEntity;
+  rpIDHash?: Uint8Array;
+  totalRPs?: number;
+  user?: PublicKeyCredentialUserEntity;
+  credentialID?: Uint8Array;
+  publicKey?: Uint8Array;
+  totalCredentials?: number;
+  credProtect?: number;
+  largeBlobKey?: Uint8Array;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#responses */
@@ -146,6 +182,24 @@ export function unpackRequest(request: CTAPAuthenticatorRequest): { command: CTA
           pinProtocol: data[0x07] as number | undefined,
         } as AuthenticatorGetAssertionRequest,
       };
+    case CTAP_COMMAND.authenticatorCredentialManagement:
+      return {
+        command: request.command,
+        request: {
+          subCommand: data[0x01] as CREDENTIAL_MANAGEMENT_SUBCOMMAND,
+          subCommandParams: data[0x02]
+            ? {
+                credentialId: (data[0x02] as Record<number, unknown>)[0x01]
+                  ? EncodeUtils.bufferSourceToUint8Array((data[0x02] as Record<number, unknown>)[0x01] as BufferSource)
+                  : undefined,
+                rpId: (data[0x02] as Record<number, unknown>)[0x02] as string | undefined,
+                user: (data[0x02] as Record<number, unknown>)[0x03] as PublicKeyCredentialUserEntity | undefined,
+              }
+            : undefined,
+          pinUvAuthProtocol: data[0x03] as number | undefined,
+          pinUvAuthParam: data[0x04] ? EncodeUtils.bufferSourceToUint8Array(data[0x04] as BufferSource) : undefined,
+        } as AuthenticatorCredentialManagementRequest,
+      };
     default:
       return {
         command: request.command,
@@ -184,6 +238,52 @@ export function packGetAssertionRequest(request: AuthenticatorGetAssertionReques
       [0x07]: request.pinProtocol,
     }),
   };
+}
+
+export function packCredentialManagementRequest(
+  request: AuthenticatorCredentialManagementRequest,
+): CTAPAuthenticatorRequest {
+  return {
+    command: CTAP_COMMAND.authenticatorCredentialManagement,
+    data: EncodeUtils.encodeCbor({
+      [0x01]: request.subCommand,
+      [0x02]: request.subCommandParams
+        ? {
+            [0x01]: request.subCommandParams.credentialId,
+            [0x02]: request.subCommandParams.rpId,
+            [0x03]: request.subCommandParams.user,
+          }
+        : undefined,
+      [0x03]: request.pinUvAuthProtocol,
+      [0x04]: request.pinUvAuthParam,
+    }),
+  };
+}
+
+export function unpackCredentialManagementRequest(
+  request: CTAPAuthenticatorRequest,
+): AuthenticatorCredentialManagementRequest {
+  try {
+    const data = EncodeUtils.decodeCbor(request.data as Uint8Array) as Record<number, unknown>;
+    const subCommandParams = data[0x02] as Record<number, unknown> | undefined;
+
+    return {
+      subCommand: data[0x01] as CREDENTIAL_MANAGEMENT_SUBCOMMAND,
+      subCommandParams: subCommandParams
+        ? {
+            credentialId: subCommandParams[0x01]
+              ? EncodeUtils.bufferSourceToUint8Array(subCommandParams[0x01] as BufferSource)
+              : undefined,
+            rpId: subCommandParams[0x02] as string | undefined,
+            user: subCommandParams[0x03] as PublicKeyCredentialUserEntity | undefined,
+          }
+        : undefined,
+      pinUvAuthProtocol: data[0x03] as number | undefined,
+      pinUvAuthParam: data[0x04] ? EncodeUtils.bufferSourceToUint8Array(data[0x04] as BufferSource) : undefined,
+    };
+  } catch (error) {
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
 }
 
 export function unpackMakeCredentialResponse(response: CTAPAuthenticatorResponse): AuthenticatorMakeCredentialResponse {
@@ -266,4 +366,49 @@ export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTA
       [0x06]: response.pinProtocols,
     }),
   };
+}
+
+export function packCredentialManagementResponse(
+  response: AuthenticatorCredentialManagementResponse,
+): CTAPAuthenticatorResponse {
+  return {
+    status: CTAP_STATUS_CODE.CTAP2_OK,
+    data: EncodeUtils.encodeCbor({
+      [0x01]: response.existingResidentCredentialsCount,
+      [0x02]: response.maxPossibleRemainingResidentCredentialsCount,
+      [0x03]: response.rp,
+      [0x04]: response.rpIDHash,
+      [0x05]: response.totalRPs,
+      [0x06]: response.user,
+      [0x07]: response.credentialID,
+      [0x08]: response.publicKey,
+      [0x09]: response.totalCredentials,
+      [0x0a]: response.credProtect,
+      [0x0b]: response.largeBlobKey,
+    }),
+  };
+}
+
+export function unpackCredentialManagementResponse(
+  response: CTAPAuthenticatorResponse,
+): AuthenticatorCredentialManagementResponse {
+  try {
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Record<number, unknown>;
+
+    return {
+      existingResidentCredentialsCount: data[0x01] as number | undefined,
+      maxPossibleRemainingResidentCredentialsCount: data[0x02] as number | undefined,
+      rp: data[0x03] as PublicKeyCredentialRpEntity | undefined,
+      rpIDHash: data[0x04] ? EncodeUtils.bufferSourceToUint8Array(data[0x04] as BufferSource) : undefined,
+      totalRPs: data[0x05] as number | undefined,
+      user: data[0x06] as PublicKeyCredentialUserEntity | undefined,
+      credentialID: data[0x07] ? EncodeUtils.bufferSourceToUint8Array(data[0x07] as BufferSource) : undefined,
+      publicKey: data[0x08] ? EncodeUtils.bufferSourceToUint8Array(data[0x08] as BufferSource) : undefined,
+      totalCredentials: data[0x09] as number | undefined,
+      credProtect: data[0x0a] as number | undefined,
+      largeBlobKey: data[0x0b] ? EncodeUtils.bufferSourceToUint8Array(data[0x0b] as BufferSource) : undefined,
+    };
+  } catch (error) {
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR, { cause: error });
+  }
 }

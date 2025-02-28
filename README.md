@@ -143,6 +143,13 @@ async function startWebAuthnEmulator(page: Page, origin: string, debug = false) 
       return response;
     },
   );
+
+  await page.exposeFunction(
+    BrowserInjection.WebAuthnEmulatorSignalUnknownCredential,
+    async (options: { rpId: string; credentialId: string }) => {
+      emulator.signalUnknownCredential(options);
+    },
+  );
 }
 
 test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
@@ -162,6 +169,7 @@ test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
 
 - `window.webAuthnEmulatorGet`: `WebAuthnEmulator.getJSON` の Exposed Function
 - `window.webAuthnEmulatorCreate`: `WebAuthnEmulator.createJSON` の Exposed Function
+- `window.webAuthnEmulatorSignalUnknownCredential`: `WebAuthnEmulator.signalUnknownCredential` の Exposed Function
 
 これらは Page グローバルに定義されるため、Page インスタンスにつき 1 回だけ定義する必要があります。
 
@@ -175,6 +183,7 @@ await page.evaluate(BrowserInjection.HookWebAuthnApis);
 
 - `navigator.credentials.get` の定義を上書きし、`window.webAuthnEmulatorGet` を呼び出す
 - `navigator.credentials.create` の定義を上書きし、`window.webAuthnEmulatorCreate` を呼び出す
+- `PublicKeyCredential.signalUnknownCredential` の定義を追加し、`window.webAuthnEmulatorSignalUnknownCredential` を呼び出す
 
 これにより先ほどの `exposeFunction` で定義した `WebAuthnEmulator` のメソッドが、`navigator.credentials.get` および `navigator.credentials.create` 呼び出し時に実行されるようになります。これらの処理中にはテストコンテキストと Playwright のコンテキスト間の通信のためにデータのシリアライズおよびデシリアライズが行われるため、そのための処理も含まれています。
 

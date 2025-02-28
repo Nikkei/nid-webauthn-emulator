@@ -14,19 +14,24 @@ import {
 } from "../webauthn/webauthn-model";
 import {
   AuthenticationEmulatorError,
+  type AuthenticatorCredentialManagementRequest,
+  type AuthenticatorCredentialManagementResponse,
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
   type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
   type AuthenticatorOptions,
+  CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
+  packCredentialManagementResponse,
   packGetAssertionResponse,
   packGetInfoResponse,
   packMakeCredentialResponse,
+  unpackCredentialManagementRequest,
   unpackRequest,
 } from "./ctap-model";
 
@@ -105,7 +110,9 @@ export class AuthenticatorEmulator {
         params.userMakeCredentialInteraction ?? AuthenticatorEmulator.DEFAULT_MAKE_CREDENTIAL_INTERACTION,
       userGetAssertionInteraction:
         params.userGetAssertionInteraction ?? AuthenticatorEmulator.DEFAULT_GET_ASSERTION_INTERACTION,
-      credentialsRepository: params.stateless ? undefined : AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY,
+      credentialsRepository: params.stateless
+        ? undefined
+        : (params.credentialsRepository ?? AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY),
       stateless: params.stateless ?? AuthenticatorEmulator.DEFAULT_STATELESS,
     };
   }
@@ -128,7 +135,63 @@ export class AuthenticatorEmulator {
     if (unpackedRequest.command === CTAP_COMMAND.authenticatorGetInfo) {
       return packGetInfoResponse(this.authenticatorGetInfo());
     }
+
+    if (unpackedRequest.command === CTAP_COMMAND.authenticatorCredentialManagement) {
+      const credentialManagementRequest = unpackCredentialManagementRequest(request);
+      const credentialManagementResponse = this.authenticatorCredentialManagement(credentialManagementRequest);
+      return packCredentialManagementResponse(credentialManagementResponse);
+    }
+
     throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+  }
+
+  /**
+   * @see https://fidoalliance.org/specs/fido-v2.1-ps-20210615/fido-client-to-authenticator-protocol-v2.1-ps-errata-20220621.html#authenticatorCredentialManagement
+   */
+  public authenticatorCredentialManagement(
+    request: AuthenticatorCredentialManagementRequest,
+  ): AuthenticatorCredentialManagementResponse {
+    const repository = this.params.credentialsRepository;
+    if (!repository) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+    }
+
+    switch (request.subCommand) {
+      case CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential:
+        return this.authenticatorDeleteCredential(request);
+      default:
+        throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+    }
+  }
+
+  private authenticatorDeleteCredential(
+    request: AuthenticatorCredentialManagementRequest,
+  ): AuthenticatorCredentialManagementResponse {
+    const repository = this.params.credentialsRepository;
+    if (!repository) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+    }
+
+    if (!request.subCommandParams?.credentialId) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
+    }
+
+    const credentialId = request.subCommandParams.credentialId;
+    const credentials = repository.loadCredentials();
+    const credential = credentials.find(
+      (cred) =>
+        EncodeUtils.encodeBase64Url(cred.publicKeyCredentialSource.id) === EncodeUtils.encodeBase64Url(credentialId),
+    );
+
+    if (!credential) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
+    }
+
+    repository.deleteCredential(credential);
+
+    return {
+      existingResidentCredentialsCount: repository.loadCredentials().length,
+    };
   }
 
   /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetInfo */

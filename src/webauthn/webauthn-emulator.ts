@@ -7,6 +7,8 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
   type RequestPublicKeyCredential,
+  type UnknownCredentialOptionsJSON,
+  decodeBase64Url,
   parseCreationOptionsFromJSON,
   parseRequestOptionsFromJSON,
   toAuthenticationResponseJSON,
@@ -15,7 +17,9 @@ import {
 
 import { createHash } from "node:crypto";
 import {
+  CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   CTAP_COMMAND,
+  packCredentialManagementRequest,
   packGetAssertionRequest,
   packMakeCredentialRequest,
   unpackGetAssertionResponse,
@@ -77,6 +81,18 @@ export class WebAuthnEmulator {
         uv: authenticatorInfo.options?.uv,
       },
     };
+  }
+
+  public signalUnknownCredential(options: UnknownCredentialOptionsJSON): void {
+    const credentialId = decodeBase64Url(options.credentialId);
+    const request = packCredentialManagementRequest({
+      subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+      subCommandParams: {
+        credentialId: EncodeUtils.bufferSourceToUint8Array(credentialId),
+        rpId: options.rpId,
+      },
+    });
+    this.authenticator.command(request);
   }
 
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */

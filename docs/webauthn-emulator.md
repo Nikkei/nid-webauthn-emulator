@@ -24,11 +24,15 @@ WebAuthn プロトコルの主要な機能を模倣するクラスです。
 
    - オーセンティケータの情報を取得します。
 
-4. `get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential`
+4. `signalUnknownCredential(options: UnknownCredentialOptionsJSON): void`
+
+   - 不明な資格情報を通知し、認証器から削除します。
+
+5. `get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential`
 
    - 認証プロセスをシミュレートします。
 
-5. `create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential`
+6. `create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential`
    - 新しい資格情報の作成プロセスをシミュレートします。
 
 ## 主要な機能
