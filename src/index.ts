@@ -1,4 +1,9 @@
-import { HookWebAuthnApis, WebAuthnEmulatorCreate, WebAuthnEmulatorGet } from "./test-utils/browser-injection";
+import {
+  HookWebAuthnApis,
+  WebAuthnEmulatorCreate,
+  WebAuthnEmulatorGet,
+  WebAuthnEmulatorSignalUnknownCredential,
+} from "./test-utils/browser-injection";
 import { WebAuthnEmulator } from "./webauthn/webauthn-emulator";
 
 export default WebAuthnEmulator;
@@ -18,5 +23,6 @@ export * from "./repository/credentials-memory-repository";
 export const BrowserInjection = {
   WebAuthnEmulatorGet,
   WebAuthnEmulatorCreate,
+  WebAuthnEmulatorSignalUnknownCredential,
   HookWebAuthnApis,
 };

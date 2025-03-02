@@ -11,6 +11,7 @@ import WebAuthnEmulator, {
   unpackAuthenticatorData,
 } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
+import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
 
 describe("WebAuthnEmulator Registration Passkeys Test", () => {
@@ -233,5 +234,37 @@ describe("WebAuthnEmulator getAuthenticatorInfo Test", () => {
       aaguid: "TklELUFVVEgtMzE0MTU5Mg",
       options: { rk: true, uv: true },
     });
+  });
+});
+
+describe("WebAuthnEmulator signalUnknownCredential Test", () => {
+  test("Signal Unknown Credential _ OK", async () => {
+    const user = { username: "test-signal", id: "test-signal" };
+    // Create a new emulator with a clean repository
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+    });
+    const emulator = new WebAuthnEmulator(authenticator);
+    const testServer = new WebAuthnTestServer();
+
+    // Create a credential
+    const options = await testServer.getRegistrationOptions(user);
+    const credential = emulator.createJSON(TEST_RP_ORIGIN, options);
+    await testServer.getRegistrationVerification(user, credential);
+
+    // Verify the credential exists
+    const credentialsBefore = repository.loadCredentials();
+    expect(credentialsBefore.length).toBe(1);
+
+    // Signal unknown credential
+    emulator.signalUnknownCredential({
+      rpId: TEST_RP_ORIGIN.replace("https://", ""),
+      credentialId: credential.id,
+    });
+
+    // Verify the credential was deleted
+    const credentialsAfter = repository.loadCredentials();
+    expect(credentialsAfter.length).toBe(0);
   });
 });

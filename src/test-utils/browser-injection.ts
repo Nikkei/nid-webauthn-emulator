@@ -2,6 +2,7 @@ import * as Model from "../webauthn/webauthn-model-json";
 
 export const WebAuthnEmulatorGet = "webAuthnEmulatorGet";
 export const WebAuthnEmulatorCreate = "webAuthnEmulatorCreate";
+export const WebAuthnEmulatorSignalUnknownCredential = "webAuthnEmulatorSignalUnknownCredential";
 
 const webAuthnModelExports = Object.values(Model)
   .map((m) => m.toString())
@@ -24,6 +25,12 @@ export const HookWebAuthnApis = `
     const responseJSON = await window.${WebAuthnEmulatorGet}(optionsJSON);
     return parseAuthenticationResponseFromJSON(responseJSON);
   }
+  
   PublicKeyCredential.isConditionalMediationAvailable = async () => true;
+  
+  PublicKeyCredential.signalUnknownCredential = async (options) => {
+    if (!options || !options.rpId || !options.credentialId) return;
+    await window.${WebAuthnEmulatorSignalUnknownCredential}(options);
+  }
 })();
 `;
