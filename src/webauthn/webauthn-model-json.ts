@@ -240,6 +240,19 @@ export interface UnknownCredentialOptionsJSON {
   credentialId: Base64urlString;
 }
 
+export interface AllAcceptedCredentialsOptionsJSON {
+  rpId: string;
+  userId: Base64urlString;
+  allAcceptedCredentialIds: Base64urlString[];
+}
+
+export interface CurrentUserDetailsOptionsJSON {
+  rpId: string;
+  userId: Base64urlString;
+  name?: string;
+  displayName?: string;
+}
+
 export function parseAuthenticationResponseFromJSON(options: AuthenticationResponseJSON): RequestPublicKeyCredential {
   return {
     id: options.id,

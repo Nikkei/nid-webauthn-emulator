@@ -146,9 +146,23 @@ async function startWebAuthnEmulator(page: Page, origin: string, debug = false) 
 
   await page.exposeFunction(
     BrowserInjection.WebAuthnEmulatorSignalUnknownCredential,
-    async (options: { rpId: string; credentialId: string }) => {
+    async (options: UnknownCredentialOptionsJSON) => {
       emulator.signalUnknownCredential(options);
     },
+  );
+
+  await page.exposeFunction(
+    BrowserInjection.WebAuthnEmulatorSignalAllAcceptedCredentials,
+    async (options: AllAcceptedCredentialsOptionsJSON) => {
+      emulator.signalAllAcceptedCredentials(options);
+    };
+  );
+
+  await page.exposeFunction(
+    BrowserInjection.WebAuthnEmulatorSignalCurrentUserDetails,
+    async (options: CurrentUserDetailsOptionsJSON) => {
+      emulator.signalCurrentUserDetails(options);
+    };
   );
 }
 

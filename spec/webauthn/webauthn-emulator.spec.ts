@@ -268,3 +268,176 @@ describe("WebAuthnEmulator signalUnknownCredential Test", () => {
     expect(credentialsAfter.length).toBe(0);
   });
 });
+
+describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
+  test("Signal All Accepted Credentials _ OK", async () => {
+    // Create users
+    const user = { username: "user1", id: "user1-id" };
+
+    // Create a new emulator with a clean repository
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+    });
+    const emulator = new WebAuthnEmulator(authenticator);
+    const testServer = new WebAuthnTestServer();
+    const options = await testServer.getRegistrationOptions(user);
+
+    // Create credential1 for user
+    const credential1 = emulator.createJSON(TEST_RP_ORIGIN, options);
+    const backupCredential1 = repository.loadCredentials()[0];
+
+    // Create credential2 for user (credential1 is overwritten)
+    const credential2 = emulator.createJSON(TEST_RP_ORIGIN, options);
+
+    // restore credential1
+    repository.saveCredential(backupCredential1);
+
+    // Verify all credentials exist
+    const credentialsBefore = repository.loadCredentials();
+    expect(credentialsBefore.length).toBe(2);
+
+    // Get the user1 credentials
+    const user1Credentials = credentialsBefore.filter((cred) => cred.user.name === user.username);
+
+    // Get the actual user ID from the credential
+    const actualUserId = EncodeUtils.encodeBase64Url(user1Credentials[0].user.id);
+
+    // Get the IDs of all credentials
+    const allCredentialIds = credentialsBefore.map((cred) =>
+      EncodeUtils.encodeBase64Url(cred.publicKeyCredentialSource.id),
+    );
+
+    // Signal that only the first credential is accepted for user1
+    emulator.signalAllAcceptedCredentials({
+      rpId: TEST_RP_ORIGIN.replace("https://", ""),
+      userId: actualUserId,
+      allAcceptedCredentialIds: [credential1.id],
+    });
+
+    // Verify that one credential was deleted
+    const credentialsAfter = repository.loadCredentials();
+    expect(credentialsAfter.length).toBe(1);
+
+    // Check that credential1 and credential3 still exist
+    const remainingIds = credentialsAfter.map((cred) => EncodeUtils.encodeBase64Url(cred.publicKeyCredentialSource.id));
+    expect(remainingIds).toContain(credential1.id);
+    expect(remainingIds).not.toContain(credential2.id);
+
+    // Verify one credential was deleted
+    expect(remainingIds.length).toBe(1);
+    expect(allCredentialIds.length).toBe(2);
+    const deletedIds = allCredentialIds.filter((id) => !remainingIds.includes(id));
+    expect(deletedIds.length).toBe(1);
+  });
+
+  test("Signal All Accepted Credentials with empty list _ Delete all user credentials", async () => {
+    // Create user
+    const user = { username: "user-test", id: "user-test-id" };
+
+    // Create a new emulator with a clean repository
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+    });
+    const emulator = new WebAuthnEmulator(authenticator);
+    const testServer = new WebAuthnTestServer();
+
+    // Create a credential for the user
+    const options = await testServer.getRegistrationOptions(user);
+    const credential1 = emulator.createJSON(TEST_RP_ORIGIN, options);
+    await testServer.getRegistrationVerification(user, credential1);
+
+    // Verify credentials exist
+    const credentialsBefore = repository.loadCredentials();
+    expect(credentialsBefore.length).toBe(1);
+
+    // Get the actual user ID from the credential
+    const actualUserId = EncodeUtils.encodeBase64Url(credentialsBefore[0].user.id);
+
+    // Signal empty accepted credentials list
+    emulator.signalAllAcceptedCredentials({
+      rpId: TEST_RP_ORIGIN.replace("https://", ""),
+      userId: actualUserId,
+      allAcceptedCredentialIds: [],
+    });
+
+    // Verify all user credentials were deleted
+    const userCredentialsAfter = repository
+      .loadCredentials()
+      .filter((cred) => EncodeUtils.encodeBase64Url(cred.user.id) === actualUserId);
+
+    expect(userCredentialsAfter.length).toBe(0);
+  });
+});
+
+describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
+  test("Signal Current User Details _ OK", async () => {
+    // Create user
+    const user = { username: "user-details", id: "user-details-id" };
+
+    // Create a new emulator with a clean repository
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+    });
+    const emulator = new WebAuthnEmulator(authenticator);
+    const testServer = new WebAuthnTestServer();
+
+    // Create a credential
+    const options = await testServer.getRegistrationOptions(user);
+    const credential = emulator.createJSON(TEST_RP_ORIGIN, options);
+    await testServer.getRegistrationVerification(user, credential);
+
+    // Verify the credential exists with original user details
+    const credentialsBefore = repository.loadCredentials();
+    expect(credentialsBefore.length).toBe(1);
+    expect(credentialsBefore[0].user.name).toBe(user.username);
+    // Note: We don't check displayName as it's not consistently set by the test server
+
+    // Get the actual user ID from the credential
+    const actualUserId = EncodeUtils.encodeBase64Url(credentialsBefore[0].user.id);
+
+    // Update user details using the actual user ID from the credential
+    const updatedName = "Updated User Name";
+    const updatedDisplayName = "Updated Display Name";
+
+    emulator.signalCurrentUserDetails({
+      rpId: TEST_RP_ORIGIN.replace("https://", ""),
+      userId: actualUserId,
+      name: updatedName,
+      displayName: updatedDisplayName,
+    });
+
+    // Verify the user details were updated
+    const credentialsAfter = repository.loadCredentials();
+    expect(credentialsAfter.length).toBe(1);
+    expect(credentialsAfter[0].user.name).toBe(updatedName);
+    expect(credentialsAfter[0].user.displayName).toBe(updatedDisplayName);
+
+    // Verify the credential ID and user ID remain unchanged
+    expect(EncodeUtils.encodeBase64Url(credentialsAfter[0].publicKeyCredentialSource.id)).toBe(credential.id);
+    expect(EncodeUtils.encodeBase64Url(credentialsAfter[0].user.id)).toBe(actualUserId);
+  });
+
+  test("Signal Current User Details with non-existent user _ Error", async () => {
+    // Create a new emulator with a clean repository
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+    });
+    const emulator = new WebAuthnEmulator(authenticator);
+
+    // Try to update non-existent user
+    const nonExistentUserId = "non-existent-user-id";
+
+    expect(() => {
+      emulator.signalCurrentUserDetails({
+        rpId: TEST_RP_ORIGIN.replace("https://", ""),
+        userId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array(nonExistentUserId)),
+        name: "New Name",
+        displayName: "New Display Name",
+      });
+    }).toThrow(); // Should throw CTAP2_ERR_NO_CREDENTIALS
+  });
+});
