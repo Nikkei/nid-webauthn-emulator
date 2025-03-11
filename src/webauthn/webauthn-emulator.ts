@@ -180,8 +180,8 @@ export class WebAuthnEmulator {
     // Create user object with updated information
     const user: PublicKeyCredentialUserEntity = {
       id: userId,
-      name: options.name ?? "",
-      displayName: options.displayName ?? "",
+      name: options.name,
+      displayName: options.displayName,
     };
 
     // Update user information using the credential management API

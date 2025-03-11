@@ -249,8 +249,8 @@ export interface AllAcceptedCredentialsOptionsJSON {
 export interface CurrentUserDetailsOptionsJSON {
   rpId: string;
   userId: Base64urlString;
-  name?: string;
-  displayName?: string;
+  name: string;
+  displayName: string;
 }
 
 export function parseAuthenticationResponseFromJSON(options: AuthenticationResponseJSON): RequestPublicKeyCredential {
