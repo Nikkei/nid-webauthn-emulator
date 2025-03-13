@@ -1,8 +1,10 @@
 import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
 import EncodeUtils from "../libs/encode-utils";
 import {
+  type AllAcceptedCredentialsOptionsJSON,
   type AuthenticationResponseJSON,
   type CreatePublicKeyCredential,
+  type CurrentUserDetailsOptionsJSON,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
@@ -22,6 +24,7 @@ import {
   packCredentialManagementRequest,
   packGetAssertionRequest,
   packMakeCredentialRequest,
+  unpackCredentialManagementResponse,
   unpackGetAssertionResponse,
   unpackGetInfoResponse,
   unpackMakeCredentialResponse,
@@ -85,14 +88,112 @@ export class WebAuthnEmulator {
 
   public signalUnknownCredential(options: UnknownCredentialOptionsJSON): void {
     const credentialId = decodeBase64Url(options.credentialId);
-    const request = packCredentialManagementRequest({
-      subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
-      subCommandParams: {
-        credentialId: EncodeUtils.bufferSourceToUint8Array(credentialId),
-        rpId: options.rpId,
-      },
-    });
-    this.authenticator.command(request);
+    this.authenticator.command(
+      packCredentialManagementRequest({
+        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+        subCommandParams: {
+          credentialId: EncodeUtils.bufferSourceToUint8Array(credentialId),
+          rpId: options.rpId,
+        },
+      }),
+    );
+  }
+
+  /**
+   * Signal all accepted credentials for a user
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/signalAllAcceptedCredentials_static
+   */
+  public signalAllAcceptedCredentials(options: AllAcceptedCredentialsOptionsJSON): void {
+    // Create a set of accepted credential IDs for quick lookup
+    const acceptedCredentialIds = new Set(options.allAcceptedCredentialIds);
+
+    // Start enumerating credentials for the specified RP
+    const beginResponse = unpackCredentialManagementResponse(
+      this.authenticator.command(
+        packCredentialManagementRequest({
+          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+          subCommandParams: {
+            rpId: options.rpId,
+          },
+        }),
+      ),
+    );
+
+    // Get the total number of credentials
+    const totalCredentials = beginResponse.totalCredentials ?? 0;
+
+    // Get all credentials for the RP and delete those not in the accepted list
+    this.processCredentials(options.rpId, options.userId, acceptedCredentialIds, totalCredentials);
+  }
+
+  /**
+   * Process credentials for an RP and delete those not in the accepted list
+   */
+  private processCredentials(
+    rpId: string,
+    userId: string,
+    acceptedCredentialIds: Set<string>,
+    totalCredentials: number,
+  ): void {
+    // Process each credential
+    for (let i = 0; i < totalCredentials; i++) {
+      // Get next credential and unpack the response
+      const credResponse = unpackCredentialManagementResponse(
+        this.authenticator.command(
+          packCredentialManagementRequest({
+            subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsGetNextCredential,
+          }),
+        ),
+      );
+
+      // Skip if this is not for the user we're looking for
+      if (credResponse.user && EncodeUtils.encodeBase64Url(credResponse.user.id) !== userId) {
+        continue;
+      }
+
+      // Delete credential if it's not in the accepted list
+      if (credResponse.credentialID) {
+        const credentialId = EncodeUtils.encodeBase64Url(credResponse.credentialID);
+        if (!acceptedCredentialIds.has(credentialId)) {
+          // Delete the credential directly
+          this.authenticator.command(
+            packCredentialManagementRequest({
+              subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+              subCommandParams: {
+                credentialId: credResponse.credentialID,
+                rpId: rpId,
+              },
+            }),
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Signal current user details
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/signalCurrentUserDetails_static
+   */
+  public signalCurrentUserDetails(options: CurrentUserDetailsOptionsJSON): void {
+    const userId = decodeBase64Url(options.userId);
+
+    // Create user object with updated information
+    const user: PublicKeyCredentialUserEntity = {
+      id: userId,
+      name: options.name,
+      displayName: options.displayName,
+    };
+
+    // Update user information using the credential management API
+    this.authenticator.command(
+      packCredentialManagementRequest({
+        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
+        subCommandParams: {
+          rpId: options.rpId,
+          user: user,
+        },
+      }),
+    );
   }
 
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */

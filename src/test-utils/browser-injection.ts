@@ -3,6 +3,8 @@ import * as Model from "../webauthn/webauthn-model-json";
 export const WebAuthnEmulatorGet = "webAuthnEmulatorGet";
 export const WebAuthnEmulatorCreate = "webAuthnEmulatorCreate";
 export const WebAuthnEmulatorSignalUnknownCredential = "webAuthnEmulatorSignalUnknownCredential";
+export const WebAuthnEmulatorSignalAllAcceptedCredentials = "webAuthnEmulatorSignalAllAcceptedCredentials";
+export const WebAuthnEmulatorSignalCurrentUserDetails = "webAuthnEmulatorSignalCurrentUserDetails";
 
 const webAuthnModelExports = Object.values(Model)
   .map((m) => m.toString())
@@ -31,6 +33,16 @@ export const HookWebAuthnApis = `
   PublicKeyCredential.signalUnknownCredential = async (options) => {
     if (!options || !options.rpId || !options.credentialId) return;
     await window.${WebAuthnEmulatorSignalUnknownCredential}(options);
+  }
+
+  PublicKeyCredential.signalAllAcceptedCredentials = async (options) => {
+    if (!options || !options.rpId || !options.userId || !options.allAcceptedCredentialIds) return;
+    await window.${WebAuthnEmulatorSignalAllAcceptedCredentials}(options);
+  }
+
+  PublicKeyCredential.signalCurrentUserDetails = async (options) => {
+    if (!options || !options.rpId || !options.userId) return;
+    await window.${WebAuthnEmulatorSignalCurrentUserDetails}(options);
   }
 })();
 `;

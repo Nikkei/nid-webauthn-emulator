@@ -159,9 +159,109 @@ export class AuthenticatorEmulator {
     switch (request.subCommand) {
       case CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential:
         return this.authenticatorDeleteCredential(request);
+      case CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin:
+        return this.authenticatorEnumerateCredentialsBegin(request);
+      case CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsGetNextCredential:
+        return this.authenticatorEnumerateCredentialsGetNextCredential();
+      case CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation:
+        return this.authenticatorUpdateUserInformation(request);
       default:
         throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
     }
+  }
+
+  // Store the current enumeration state
+  private enumerationState: {
+    rpId: string;
+    credentials: PasskeyDiscoverableCredential[];
+    currentIndex: number;
+  } | null = null;
+
+  private authenticatorEnumerateCredentialsBegin(
+    request: AuthenticatorCredentialManagementRequest,
+  ): AuthenticatorCredentialManagementResponse {
+    const repository = this.params.credentialsRepository;
+    if (!repository) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+    }
+
+    const rpId = request.subCommandParams?.rpId;
+    if (!rpId) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
+    }
+
+    // Get all credentials for the RP
+    const allCredentials = repository.loadCredentials();
+    const rpCredentials = allCredentials.filter((cred) => cred.publicKeyCredentialSource.rpId.value === rpId);
+
+    // Store the enumeration state
+    this.enumerationState = {
+      rpId,
+      credentials: rpCredentials,
+      currentIndex: 0,
+    };
+
+    return {
+      totalCredentials: rpCredentials.length,
+    };
+  }
+
+  private authenticatorEnumerateCredentialsGetNextCredential(): AuthenticatorCredentialManagementResponse {
+    if (!this.enumerationState || this.enumerationState.currentIndex >= this.enumerationState.credentials.length) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
+    }
+
+    const credential = this.enumerationState.credentials[this.enumerationState.currentIndex++];
+
+    return {
+      user: credential.user,
+      credentialID: EncodeUtils.bufferSourceToUint8Array(credential.publicKeyCredentialDescriptor.id),
+      publicKey: credential.authenticatorData.attestedCredentialData?.credentialPublicKey.toDer(),
+    };
+  }
+
+  private authenticatorUpdateUserInformation(
+    request: AuthenticatorCredentialManagementRequest,
+  ): AuthenticatorCredentialManagementResponse {
+    const repository = this.params.credentialsRepository;
+    if (!repository) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED);
+    }
+
+    const rpId = request.subCommandParams?.rpId;
+    const user = request.subCommandParams?.user;
+
+    if (!rpId || !user) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
+    }
+
+    // Find all credentials for this user and RP
+    const allCredentials = repository.loadCredentials();
+    const userCredentials = allCredentials.filter(
+      (cred) =>
+        cred.publicKeyCredentialSource.rpId.value === rpId &&
+        EncodeUtils.encodeBase64Url(cred.user.id) === EncodeUtils.encodeBase64Url(user.id),
+    );
+
+    if (userCredentials.length === 0) {
+      throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS);
+    }
+
+    // Update user information for all matching credentials
+    for (const credential of userCredentials) {
+      const updatedCredential: PasskeyDiscoverableCredential = {
+        ...credential,
+        user: {
+          ...user,
+          id: user.id, // Keep the same ID
+        },
+      };
+
+      repository.deleteCredential(credential);
+      repository.saveCredential(updatedCredential);
+    }
+
+    return {};
   }
 
   private authenticatorDeleteCredential(
