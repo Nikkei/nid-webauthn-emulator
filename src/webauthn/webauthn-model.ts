@@ -13,8 +13,8 @@ export class RpId {
 
   /** @see https://www.w3.org/TR/webauthn-3/#sctn-validating-origin */
   public validate(origin: string): boolean {
-    const parsedOrigin = parse(origin);
-    const parsedRpId = parse(this.value);
+    const parsedOrigin = parse(origin, { validHosts: ['localhost'] });
+    const parsedRpId = parse(this.value, { validHosts: ['localhost'] });
 
     return Boolean(
       parsedOrigin.domain &&
