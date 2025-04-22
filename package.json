@@ -26,6 +26,6 @@
   },
   "dependencies": {
     "cbor": "^10.0.3",
-    "tldts": "^7.0.0"
+    "tldts": "^7.0.1"
   }
 }
