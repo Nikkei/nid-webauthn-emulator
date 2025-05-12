@@ -12,8 +12,8 @@ importers:
         specifier: ^10.0.3
         version: 10.0.3
       tldts:
-        specifier: ^7.0.6
-        version: 7.0.6
+        specifier: ^7.0.7
+        version: 7.0.7
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.9.4
@@ -1262,11 +1262,11 @@ packages:
     resolution: {integrity: sha512-cAGWPIyOHU6zlmg88jwm7VRyXnMN7iV68OGAbYDk/Mh/xC/pzVPlQtY6ngoIH/5/tciuhGfvESU8GrHrcxD56w==}
     engines: {node: '>=8'}
 
-  tldts-core@7.0.6:
-    resolution: {integrity: sha512-HZeeJrplG9y+sJx6VNcMKfbpY9UEq+JI0JRqE66Dm81QmclDgygaKOIwkeX8atmiQraJV2w4JbYI3wfCbw319w==}
+  tldts-core@7.0.7:
+    resolution: {integrity: sha512-ECqb8imSroX1UmUuhRBNPkkmtZ8mHEenieim80UVxG0M5wXVjY2Fp2tYXCPvk+nLy1geOhFpeD5YQhM/gF63Jg==}
 
-  tldts@7.0.6:
-    resolution: {integrity: sha512-LjGkyvtJee7JuRQyjTojg+UKuUppWgdzNsDVtiR8HGnbsjemamHBM+u/AkM7gYtJAg2Ilwk3zJJ8CQtf5sP+8A==}
+  tldts@7.0.7:
+    resolution: {integrity: sha512-ETNXj36ql5BXDa4VVJk3wgqansg8TI1Yqo217twSAPjyDnh/b2T+XzrI0ftn6EnzVPbXpMTZHOWj5s3a8/uGPA==}
     hasBin: true
 
   tmpl@1.0.5:
@@ -2890,11 +2890,11 @@ snapshots:
       glob: 7.2.3
       minimatch: 3.1.2
 
-  tldts-core@7.0.6: {}
+  tldts-core@7.0.7: {}
 
-  tldts@7.0.6:
+  tldts@7.0.7:
     dependencies:
-      tldts-core: 7.0.6
+      tldts-core: 7.0.7
 
   tmpl@1.0.5: {}
 
