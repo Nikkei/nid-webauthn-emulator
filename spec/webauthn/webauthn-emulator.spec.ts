@@ -379,7 +379,7 @@ describe("WebAuthnEmulator relatedOrigins Test", () => {
     // Origin is different from the RP ID
     const testServer = new WebAuthnTestServer("https://test-rp.com", "test-rp2.com");
 
-    const relatedOrigins = ["https://test-rp1.com", "https://test-rp2.com", "https://test-rp3.com"];
+    const relatedOrigins = ["https://test-rp-a.com", "https://test-rp-b.com", "https://test-rp.com"];
 
     // Register a credential
     const regOptions = await testServer.getRegistrationOptions(user);

@@ -189,7 +189,7 @@ test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
 - `window.webAuthnEmulatorSignalAllAcceptedCredentials`: `WebAuthnEmulator.signalAllAcceptedCredentials` の Exposed Function
 - `window.webAuthnEmulatorSignalCurrentUserDetails`: `WebAuthnEmulator.signalCurrentUserDetails` の Exposed Function
 
-さらに`startWebAuthnEmulator`関数は`relatedOrigins`パラメータをサポートしています。これにより、異なるオリジンからのリクエストでも同じRP IDを使用できるようになります。例えば、マルチドメイン環境（`example.com`と`sub.example.com`など）でPasskeysを使用する場合に便利です。
+さらに`startWebAuthnEmulator`関数は`relatedOrigins`パラメータをサポートしています。これにより、異なるオリジンからのリクエストでも同じRP IDを使用できるようになります。例えば、マルチドメイン環境（`example.com`と`sub.example.com`など）でPasskeysを使用する場合に便利です。`relatedOrigins` の値はRP IDで指定されたドメインでホストされた `/.well-known/webauthn` の内容と同じです。
 
 これらは Page グローバルに定義されるため、Page インスタンスにつき 1 回だけ定義する必要があります。
 
