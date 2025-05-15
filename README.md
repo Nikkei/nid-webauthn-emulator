@@ -125,13 +125,13 @@ import WebAuthnEmulator, {
   type PublicKeyCredentialRequestOptionsJSON,
 } from "nid-webauthn-emulator";
 
-async function startWebAuthnEmulator(page: Page, origin: string, debug = false) {
+async function startWebAuthnEmulator(page: Page, origin: string, debug = false, relatedOrigins: string[] = []) {
   const emulator = new WebAuthnEmulator();
 
   await page.exposeFunction(
     BrowserInjection.WebAuthnEmulatorCreate,
     async (optionsJSON: PublicKeyCredentialCreationOptionsJSON) => {
-      const response = emulator.createJSON(origin, optionsJSON);
+      const response = emulator.createJSON(origin, optionsJSON, relatedOrigins);
       return response;
     },
   );
@@ -139,7 +139,7 @@ async function startWebAuthnEmulator(page: Page, origin: string, debug = false) 
   await page.exposeFunction(
     BrowserInjection.WebAuthnEmulatorGet,
     async (optionsJSON: PublicKeyCredentialRequestOptionsJSON) => {
-      const response = emulator.getJSON(origin, optionsJSON);
+      const response = emulator.getJSON(origin, optionsJSON, relatedOrigins);
       return response;
     },
   );
@@ -155,21 +155,23 @@ async function startWebAuthnEmulator(page: Page, origin: string, debug = false) 
     BrowserInjection.WebAuthnEmulatorSignalAllAcceptedCredentials,
     async (options: AllAcceptedCredentialsOptionsJSON) => {
       emulator.signalAllAcceptedCredentials(options);
-    };
+    },
   );
 
   await page.exposeFunction(
     BrowserInjection.WebAuthnEmulatorSignalCurrentUserDetails,
     async (options: CurrentUserDetailsOptionsJSON) => {
       emulator.signalCurrentUserDetails(options);
-    };
+    },
   );
 }
 
 test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
   test("Passkeys login test", async ({ page }) => {
     // Page内で最初に1回だけ定義する exposed functions
-    await startWebAuthnEmulator(page, env, true);
+    // 必要に応じて関連オリジンを指定できます
+    const relatedOrigins = ["https://sub.example.com", "https://alt.example.com"];
+    await startWebAuthnEmulator(page, env, true, relatedOrigins);
     await page.goto("https://example.com/passkeys/login");
 
     // Passkeys の WebAuthn API をフック開始
@@ -184,6 +186,10 @@ test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
 - `window.webAuthnEmulatorGet`: `WebAuthnEmulator.getJSON` の Exposed Function
 - `window.webAuthnEmulatorCreate`: `WebAuthnEmulator.createJSON` の Exposed Function
 - `window.webAuthnEmulatorSignalUnknownCredential`: `WebAuthnEmulator.signalUnknownCredential` の Exposed Function
+- `window.webAuthnEmulatorSignalAllAcceptedCredentials`: `WebAuthnEmulator.signalAllAcceptedCredentials` の Exposed Function
+- `window.webAuthnEmulatorSignalCurrentUserDetails`: `WebAuthnEmulator.signalCurrentUserDetails` の Exposed Function
+
+さらに`startWebAuthnEmulator`関数は`relatedOrigins`パラメータをサポートしています。これにより、異なるオリジンからのリクエストでも同じRP IDを使用できるようになります。例えば、マルチドメイン環境（`example.com`と`sub.example.com`など）でPasskeysを使用する場合に便利です。
 
 これらは Page グローバルに定義されるため、Page インスタンスにつき 1 回だけ定義する必要があります。
 

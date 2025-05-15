@@ -60,15 +60,23 @@ export class InvalidRpIdError extends WebAuthnEmulatorError {}
 export class WebAuthnEmulator {
   constructor(public authenticator: AuthenticatorEmulator = new AuthenticatorEmulator()) {}
 
-  public getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON {
+  public getJSON(
+    origin: string,
+    optionsJSON: PublicKeyCredentialRequestOptionsJSON,
+    relatedOrigins: string[] = [],
+  ): AuthenticationResponseJSON {
     const options = parseRequestOptionsFromJSON(optionsJSON);
-    const response = this.get(origin, { publicKey: options });
+    const response = this.get(origin, { publicKey: options }, relatedOrigins);
     return response.toJSON();
   }
 
-  public createJSON(origin: string, optionsJSON: PublicKeyCredentialCreationOptionsJSON): RegistrationResponseJSON {
+  public createJSON(
+    origin: string,
+    optionsJSON: PublicKeyCredentialCreationOptionsJSON,
+    relatedOrigins: string[] = [],
+  ): RegistrationResponseJSON {
     const options = parseCreationOptionsFromJSON(optionsJSON);
-    const response = this.create(origin, { publicKey: options });
+    const response = this.create(origin, { publicKey: options }, relatedOrigins);
     return response.toJSON();
   }
 
@@ -197,11 +205,16 @@ export class WebAuthnEmulator {
   }
 
   /** @see https://developer.mozilla.org/en-US/docs/Web/API/CredentialsContainer/get */
-  public get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential {
+  public get(
+    origin: string,
+    options: CredentialRequestOptions,
+    relatedOrigins: string[] = [],
+  ): RequestPublicKeyCredential {
     if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rpId ?? new URL(origin).hostname);
-    if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+    if (!rpId.validate(origin, relatedOrigins))
+      throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
@@ -245,11 +258,16 @@ export class WebAuthnEmulator {
   }
 
   /** @see https://developer.mozilla.org/ja/docs/Web/API/CredentialsContainer/create */
-  public create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential {
+  public create(
+    origin: string,
+    options: CredentialCreationOptions,
+    relatedOrigins: string[] = [],
+  ): CreatePublicKeyCredential {
     if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rp.id ?? new URL(origin).hostname);
-    if (!rpId.validate(origin)) throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+    if (!rpId.validate(origin, relatedOrigins))
+      throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
 
     const clientData: CollectedClientData = {
       challenge: EncodeUtils.encodeBase64Url(options.publicKey.challenge),

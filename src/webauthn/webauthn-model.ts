@@ -12,17 +12,29 @@ export class RpId {
   }
 
   /** @see https://www.w3.org/TR/webauthn-3/#sctn-validating-origin */
-  public validate(origin: string): boolean {
-    const parsedOrigin = parse(origin, { validHosts: ["localhost"] });
+  public validate(origin: string, relatedOrigins: string[] = []): boolean {
+    // Create a list of all origins to check (main origin plus related origins)
+    const originsToCheck = [origin, ...relatedOrigins];
     const parsedRpId = parse(this.value, { validHosts: ["localhost"] });
 
-    return Boolean(
-      parsedOrigin.domain &&
-        parsedOrigin.subdomain !== null &&
-        parsedRpId.subdomain !== null &&
-        parsedOrigin.domain === parsedRpId.domain &&
-        parsedOrigin.subdomain.endsWith(parsedRpId.subdomain),
-    );
+    // Check each origin using standard validation
+    for (const currentOrigin of originsToCheck) {
+      const parsedOrigin = parse(currentOrigin, { validHosts: ["localhost"] });
+
+      const isValid = Boolean(
+        parsedOrigin.domain &&
+          parsedOrigin.subdomain !== null &&
+          parsedRpId.subdomain !== null &&
+          parsedOrigin.domain === parsedRpId.domain &&
+          parsedOrigin.subdomain.endsWith(parsedRpId.subdomain),
+      );
+
+      if (isValid) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
 
