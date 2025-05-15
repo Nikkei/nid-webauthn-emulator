@@ -371,6 +371,36 @@ describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
   });
 });
 
+describe("WebAuthnEmulator relatedOrigins Test", () => {
+  test("Get with relatedOrigins _ OK with origin not matching rpId", async () => {
+    const user = { username: "test-related", id: "test-related" };
+    const emulator = new WebAuthnEmulator();
+
+    // Origin is different from the RP ID
+    const testServer = new WebAuthnTestServer("https://test-rp.com", "test-rp2.com");
+
+    const relatedOrigins = ["https://test-rp1.com", "https://test-rp2.com", "https://test-rp3.com"];
+
+    // Register a credential
+    const regOptions = await testServer.getRegistrationOptions(user);
+    const credential = emulator.createJSON(testServer.origin, regOptions, relatedOrigins);
+    await testServer.getRegistrationVerification(user, credential);
+
+    // Create authentication options
+    const authOptions = await testServer.getAuthenticationOptions();
+
+    // Standard RP ID validation only
+    await expect(async () => {
+      emulator.getJSON(testServer.origin, authOptions);
+    }).rejects.toThrow(InvalidRpIdError);
+
+    // Related origins validation
+    const authResponse = emulator.getJSON(testServer.origin, authOptions, relatedOrigins);
+    expect(authResponse).toBeDefined();
+    expect(authResponse.id).toBe(credential.id);
+  });
+});
+
 describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
   test("Signal Current User Details _ OK", async () => {
     // Create user
