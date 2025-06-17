@@ -114,9 +114,9 @@ describe("CTAP Model Test", () => {
     const response = {} as unknown as CTAPAuthenticatorResponse;
     const expected = "CTAP error: CTAP2_ERR_INVALID_CBOR (18)";
 
-    expect(() => unpackMakeCredentialResponse(response)).toThrowError(expected);
-    expect(() => unpackGetAssertionResponse(response)).toThrowError(expected);
-    expect(() => unpackGetInfoResponse(response)).toThrowError(expected);
+    expect(() => unpackMakeCredentialResponse(response)).toThrow(expected);
+    expect(() => unpackGetAssertionResponse(response)).toThrow(expected);
+    expect(() => unpackGetInfoResponse(response)).toThrow(expected);
   });
 
   test("Illegal cbor data parse test _ failed to unpack", async () => {
@@ -124,6 +124,6 @@ describe("CTAP Model Test", () => {
       command: CTAP_COMMAND.authenticatorMakeCredential,
       data: new Uint8Array([1, 2, 3, 4, 5]),
     };
-    expect(() => unpackRequest(request)).toThrowError("CTAP error: CTAP2_ERR_INVALID_CBOR (18)");
+    expect(() => unpackRequest(request)).toThrow("CTAP error: CTAP2_ERR_INVALID_CBOR (18)");
   });
 });

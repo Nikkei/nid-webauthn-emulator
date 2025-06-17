@@ -19,7 +19,7 @@ describe("Authenticator Emulator Exceptional Test", () => {
     const authenticator = new AuthenticatorEmulator();
     expect(() => {
       authenticator.command(testRequest);
-    }).toThrowError("CTAP error: CTAP1_ERR_INVALID_COMMAND (1)");
+    }).toThrow("CTAP error: CTAP1_ERR_INVALID_COMMAND (1)");
   });
 });
 
