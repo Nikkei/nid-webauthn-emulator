@@ -9,8 +9,8 @@ import { CoseKey } from "../webauthn/cose-key";
 import {
   type AuthenticatorData,
   type PublicKeyCredentialSource,
-  RpId,
   packAuthenticatorData,
+  RpId,
 } from "../webauthn/webauthn-model";
 import {
   AuthenticationEmulatorError,
@@ -23,10 +23,10 @@ import {
   type AuthenticatorMakeCredentialResponse,
   type AuthenticatorOptions,
   CREDENTIAL_MANAGEMENT_SUBCOMMAND,
-  type CTAPAuthenticatorRequest,
-  type CTAPAuthenticatorResponse,
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
+  type CTAPAuthenticatorRequest,
+  type CTAPAuthenticatorResponse,
   packCredentialManagementResponse,
   packGetAssertionResponse,
   packGetInfoResponse,
@@ -496,7 +496,7 @@ function getAssertion(
     signCount: newSignCounter,
   };
 
-  const payload = new Array<number>();
+  const payload: number[] = [];
   payload.push(...packAuthenticatorData(authenticatorData));
   payload.push(...clientDataHash);
 

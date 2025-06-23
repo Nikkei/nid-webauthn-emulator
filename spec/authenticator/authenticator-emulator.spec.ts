@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test } from "@jest/globals";
 import { AuthenticatorEmulator } from "../../src";
-import { type CTAPAuthenticatorRequest, CTAP_COMMAND } from "../../src/authenticator/ctap-model";
 import {
   AuthenticationEmulatorError,
   CREDENTIAL_MANAGEMENT_SUBCOMMAND,
+  CTAP_COMMAND,
   CTAP_STATUS_CODE,
+  type CTAPAuthenticatorRequest,
 } from "../../src/authenticator/ctap-model";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";

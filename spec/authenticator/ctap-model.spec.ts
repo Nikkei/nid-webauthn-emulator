@@ -1,14 +1,13 @@
-import { describe, test } from "@jest/globals";
-import { expect } from "@jest/globals";
+import { describe, expect, test } from "@jest/globals";
 import {
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
   type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
+  CTAP_COMMAND,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
-  CTAP_COMMAND,
   packGetAssertionRequest,
   packGetAssertionResponse,
   packGetInfoResponse,
