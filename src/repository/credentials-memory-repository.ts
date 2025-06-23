@@ -1,8 +1,8 @@
 import {
-  type PasskeyDiscoverableCredential,
-  type PasskeysCredentialsRepository,
   deserializeCredential,
   getRepositoryId,
+  type PasskeyDiscoverableCredential,
+  type PasskeysCredentialsRepository,
   serializeCredential,
 } from "./credentials-repository";
 

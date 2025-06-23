@@ -5,9 +5,9 @@ import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import {
   type AttestationObject,
   type PublicKeyCredentialSource,
-  RpId,
   packAttestationObject,
   parsePublicKeyCredentialSourceFromJSON,
+  RpId,
   toFido2CreateOptions,
   toFido2RequestOptions,
   toPublickeyCredentialSourceJSON,

@@ -212,15 +212,15 @@ export function packMakeCredentialRequest(request: AuthenticatorMakeCredentialRe
   return {
     command: CTAP_COMMAND.authenticatorMakeCredential,
     data: EncodeUtils.encodeCbor({
-      [0x01]: request.clientDataHash,
-      [0x02]: request.rp,
-      [0x03]: request.user,
-      [0x04]: request.pubKeyCredParams,
-      [0x05]: request.excludeList,
-      [0x06]: request.extensions,
-      [0x07]: request.options,
-      [0x08]: request.pinAuth,
-      [0x09]: request.pinProtocol,
+      "1": request.clientDataHash,
+      "2": request.rp,
+      "3": request.user,
+      "4": request.pubKeyCredParams,
+      "5": request.excludeList,
+      "6": request.extensions,
+      "7": request.options,
+      "8": request.pinAuth,
+      "9": request.pinProtocol,
     }),
   };
 }
@@ -229,13 +229,13 @@ export function packGetAssertionRequest(request: AuthenticatorGetAssertionReques
   return {
     command: CTAP_COMMAND.authenticatorGetAssertion,
     data: EncodeUtils.encodeCbor({
-      [0x01]: request.rpId,
-      [0x02]: request.clientDataHash,
-      [0x03]: request.allowList,
-      [0x04]: request.extensions,
-      [0x05]: request.options,
-      [0x06]: request.pinAuth,
-      [0x07]: request.pinProtocol,
+      "1": request.rpId,
+      "2": request.clientDataHash,
+      "3": request.allowList,
+      "4": request.extensions,
+      "5": request.options,
+      "6": request.pinAuth,
+      "7": request.pinProtocol,
     }),
   };
 }
@@ -246,16 +246,16 @@ export function packCredentialManagementRequest(
   return {
     command: CTAP_COMMAND.authenticatorCredentialManagement,
     data: EncodeUtils.encodeCbor({
-      [0x01]: request.subCommand,
-      [0x02]: request.subCommandParams
+      "1": request.subCommand,
+      "2": request.subCommandParams
         ? {
-            [0x01]: request.subCommandParams.credentialId,
-            [0x02]: request.subCommandParams.rpId,
-            [0x03]: request.subCommandParams.user,
+            "1": request.subCommandParams.credentialId,
+            "2": request.subCommandParams.rpId,
+            "3": request.subCommandParams.user,
           }
         : undefined,
-      [0x03]: request.pinUvAuthProtocol,
-      [0x04]: request.pinUvAuthParam,
+      "3": request.pinUvAuthProtocol,
+      "4": request.pinUvAuthParam,
     }),
   };
 }
@@ -303,9 +303,9 @@ export function packMakeCredentialResponse(response: AuthenticatorMakeCredential
   return {
     status: CTAP_STATUS_CODE.CTAP2_OK,
     data: EncodeUtils.encodeCbor({
-      [0x01]: response.fmt,
-      [0x02]: response.authData,
-      [0x03]: response.attStmt,
+      "1": response.fmt,
+      "2": response.authData,
+      "3": response.attStmt,
     }),
   };
 }
@@ -329,11 +329,11 @@ export function packGetAssertionResponse(response: AuthenticatorGetAssertionResp
   return {
     status: CTAP_STATUS_CODE.CTAP2_OK,
     data: EncodeUtils.encodeCbor({
-      [0x01]: response.credential,
-      [0x02]: response.authData,
-      [0x03]: response.signature,
-      [0x04]: response.user,
-      [0x05]: response.numberOfCredentials,
+      "1": response.credential,
+      "2": response.authData,
+      "3": response.signature,
+      "4": response.user,
+      "5": response.numberOfCredentials,
     }),
   };
 }
@@ -358,12 +358,12 @@ export function packGetInfoResponse(response: AuthenticatorGetInfoResponse): CTA
   return {
     status: CTAP_STATUS_CODE.CTAP2_OK,
     data: EncodeUtils.encodeCbor({
-      [0x01]: response.versions,
-      [0x02]: response.extensions,
-      [0x03]: response.aaguid,
-      [0x04]: response.options,
-      [0x05]: response.maxMsgSize,
-      [0x06]: response.pinProtocols,
+      "1": response.versions,
+      "2": response.extensions,
+      "3": response.aaguid,
+      "4": response.options,
+      "5": response.maxMsgSize,
+      "6": response.pinProtocols,
     }),
   };
 }
@@ -374,17 +374,17 @@ export function packCredentialManagementResponse(
   return {
     status: CTAP_STATUS_CODE.CTAP2_OK,
     data: EncodeUtils.encodeCbor({
-      [0x01]: response.existingResidentCredentialsCount,
-      [0x02]: response.maxPossibleRemainingResidentCredentialsCount,
-      [0x03]: response.rp,
-      [0x04]: response.rpIDHash,
-      [0x05]: response.totalRPs,
-      [0x06]: response.user,
-      [0x07]: response.credentialID,
-      [0x08]: response.publicKey,
-      [0x09]: response.totalCredentials,
-      [0x0a]: response.credProtect,
-      [0x0b]: response.largeBlobKey,
+      "1": response.existingResidentCredentialsCount,
+      "2": response.maxPossibleRemainingResidentCredentialsCount,
+      "3": response.rp,
+      "4": response.rpIDHash,
+      "5": response.totalRPs,
+      "6": response.user,
+      "7": response.credentialID,
+      "8": response.publicKey,
+      "9": response.totalCredentials,
+      "10": response.credProtect,
+      "11": response.largeBlobKey,
     }),
   };
 }

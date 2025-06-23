@@ -1,23 +1,5 @@
-import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
-import EncodeUtils from "../libs/encode-utils";
-import {
-  type AllAcceptedCredentialsOptionsJSON,
-  type AuthenticationResponseJSON,
-  type CreatePublicKeyCredential,
-  type CurrentUserDetailsOptionsJSON,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
-  type RegistrationResponseJSON,
-  type RequestPublicKeyCredential,
-  type UnknownCredentialOptionsJSON,
-  decodeBase64Url,
-  parseCreationOptionsFromJSON,
-  parseRequestOptionsFromJSON,
-  toAuthenticationResponseJSON,
-  toRegistrationResponseJSON,
-} from "./webauthn-model-json";
-
 import { createHash } from "node:crypto";
+import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
 import {
   CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   CTAP_COMMAND,
@@ -29,17 +11,34 @@ import {
   unpackGetInfoResponse,
   unpackMakeCredentialResponse,
 } from "../authenticator/ctap-model";
+import EncodeUtils from "../libs/encode-utils";
 import {
   type AttestationObject,
   type AttestedCredentialData,
   type CollectedClientData,
-  RpId,
   packAttestationObject,
   packAuthenticatorData,
+  RpId,
   toFido2CreateOptions,
   toFido2RequestOptions,
   unpackAuthenticatorData,
 } from "./webauthn-model";
+import {
+  type AllAcceptedCredentialsOptionsJSON,
+  type AuthenticationResponseJSON,
+  type CreatePublicKeyCredential,
+  type CurrentUserDetailsOptionsJSON,
+  decodeBase64Url,
+  type PublicKeyCredentialCreationOptionsJSON,
+  type PublicKeyCredentialRequestOptionsJSON,
+  parseCreationOptionsFromJSON,
+  parseRequestOptionsFromJSON,
+  type RegistrationResponseJSON,
+  type RequestPublicKeyCredential,
+  toAuthenticationResponseJSON,
+  toRegistrationResponseJSON,
+  type UnknownCredentialOptionsJSON,
+} from "./webauthn-model-json";
 
 export type AuthenticatorInfo = {
   version: string;

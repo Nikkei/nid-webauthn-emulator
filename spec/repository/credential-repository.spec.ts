@@ -4,8 +4,8 @@ import { describe, expect, test } from "@jest/globals";
 import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import {
-  type PasskeyDiscoverableCredentialJSON,
   deserializeCredential,
+  type PasskeyDiscoverableCredentialJSON,
   serializeCredential,
 } from "../../src/repository/credentials-repository";
 

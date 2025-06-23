@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import {
-  type PasskeyDiscoverableCredential,
-  type PasskeysCredentialsRepository,
   deserializeCredential,
   getRepositoryId,
+  type PasskeyDiscoverableCredential,
+  type PasskeysCredentialsRepository,
   serializeCredential,
 } from "./credentials-repository";
 

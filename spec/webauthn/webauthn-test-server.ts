@@ -11,6 +11,7 @@ import type {
   RegistrationResponseJSON,
 } from "../../src";
 import type { PasskeysApiClient, PasskeysUser } from "../integration/passkeys-api-client";
+
 type UserModel = {
   id: string;
   username: string;
