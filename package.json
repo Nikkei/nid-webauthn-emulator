@@ -21,7 +21,7 @@
   "types": "dist/src/index.d.ts",
   "devDependencies": {
     "@biomejs/biome": "^2.0.5",
-    "@jest/globals": "^30.0.2",
+    "@jest/globals": "^30.0.3",
     "@simplewebauthn/server": "^13.1.1",
     "@tsconfig/recommended": "^1.0.10",
     "@types/node": "^24.0.3",
