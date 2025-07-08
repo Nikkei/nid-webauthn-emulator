@@ -31,7 +31,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "cbor": "^10.0.3",
+    "cbor": "^10.0.9",
     "tldts": "^7.0.10"
   }
 }
