@@ -277,7 +277,7 @@ export class WebAuthnEmulator {
     const clientDataJSON = JSON.stringify(clientData);
 
     const authenticatorRequest = packMakeCredentialRequest({
-      clientDataHash: createHash("sha256").update(clientDataJSON).digest(),
+      clientDataHash: EncodeUtils.bufferSourceToUint8Array(createHash("sha256").update(clientDataJSON).digest()),
       rp: { name: options.publicKey.rp.name, id: rpId.value },
       user: options.publicKey.user,
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
