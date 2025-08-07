@@ -224,7 +224,9 @@ export class WebAuthnEmulator {
 
     const authenticatorRequest = packGetAssertionRequest({
       rpId: rpId.value,
-      clientDataHash: createHash("sha256").update(JSON.stringify(clientData)).digest(),
+      clientDataHash: EncodeUtils.bufferSourceToUint8Array(
+        createHash("sha256").update(JSON.stringify(clientData)).digest(),
+      ),
       allowList: options.publicKey.allowCredentials,
       options: toFido2RequestOptions(options.publicKey.userVerification),
     });

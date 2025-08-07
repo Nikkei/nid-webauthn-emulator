@@ -34,6 +34,9 @@ function encodeCbor(data: object): Uint8Array {
     if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
       return Buffer.from(value);
     }
+    if (value instanceof Buffer) {
+      return value;
+    }
     if (Array.isArray(value)) {
       return value.map((v) => encoder(v));
     }

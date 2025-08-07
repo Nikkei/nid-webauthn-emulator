@@ -506,7 +506,7 @@ function getAssertion(
     key: credential.privateKey as Buffer,
   });
 
-  const signature = sign(null, new Uint8Array(payload), privateKey);
+  const signature = EncodeUtils.bufferSourceToUint8Array(sign(null, new Uint8Array(payload), privateKey));
   return { authData: packAuthenticatorData(authenticatorData), signature };
 }
 
