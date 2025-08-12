@@ -53,7 +53,7 @@ export type PasskeyCredential = {
 };
 
 export type AuthenticatorParameters = {
-  readonly aaguid: Uint8Array;
+  readonly aaguid: Uint8Array<ArrayBuffer>;
   readonly transports: AuthenticatorTransport[];
   readonly algorithmIdentifiers: readonly (keyof typeof COSEAlgorithmIdentifier)[];
   readonly signCounterIncrement: number;
@@ -414,7 +414,7 @@ export class AuthenticatorEmulator {
 function getCredentialsStateless(
   rpId: RpId,
   allowCredentials: PublicKeyCredentialDescriptor[],
-  key: Uint8Array,
+  key: Uint8Array<ArrayBuffer>,
 ): PasskeyCredential[] {
   return allowCredentials.map((descriptor) => {
     const id = EncodeUtils.bufferSourceToUint8Array(descriptor.id);
@@ -476,13 +476,13 @@ function saveCredential(credential: PasskeyDiscoverableCredential, repository: P
 }
 
 function getAssertion(
-  rpIdHash: Uint8Array,
-  clientDataHash: Uint8Array,
+  rpIdHash: Uint8Array<ArrayBuffer>,
+  clientDataHash: Uint8Array<ArrayBuffer>,
   newSignCounter: number,
   credential: PublicKeyCredentialSource,
   interactionResponse: InteractionResponse,
   stateless: boolean,
-): { authData: Uint8Array; signature: Uint8Array } {
+): { authData: Uint8Array<ArrayBuffer>; signature: Uint8Array<ArrayBuffer> } {
   const authenticatorData = {
     rpIdHash,
     flags: {
@@ -506,18 +506,20 @@ function getAssertion(
     key: credential.privateKey as Buffer,
   });
 
-  const signature = EncodeUtils.bufferSourceToUint8Array(sign(null, new Uint8Array(payload), privateKey));
+  const signature = EncodeUtils.bufferSourceToUint8Array(
+    new Uint8Array(sign(null, new Uint8Array(payload), privateKey)),
+  );
   return { authData: packAuthenticatorData(authenticatorData), signature };
 }
 
 function makeCredential(
-  aaguid: Uint8Array,
+  aaguid: Uint8Array<ArrayBuffer>,
   rpId: RpId,
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
   interactionResponse: InteractionResponse,
   user: PublicKeyCredentialUserEntity | undefined,
-  statelessKey: Uint8Array | undefined,
+  statelessKey: Uint8Array<ArrayBuffer> | undefined,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -568,14 +570,14 @@ function makeCredential(
   };
 }
 
-function encryptBytes(key: Uint8Array, data: Uint8Array): Uint8Array {
+function encryptBytes(key: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   const iv = randomBytes(16);
   const cipher = createCipheriv("aes-256-ctr", key, iv);
   const encrypted = cipher.update(data);
   return Buffer.concat([iv, encrypted, cipher.final()]);
 }
 
-function decryptBytes(key: Uint8Array, data: Uint8Array): Uint8Array {
+function decryptBytes(key: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   const iv = data.slice(0, 16);
   const encrypted = data.slice(16);
   const cipher = createCipheriv("aes-256-ctr", key, iv);

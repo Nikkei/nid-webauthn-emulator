@@ -8,7 +8,7 @@ export abstract class CoseKey {
     public alg: number,
   ) {}
 
-  public abstract toBytes(): Uint8Array;
+  public abstract toBytes(): Uint8Array<ArrayBuffer>;
 
   public abstract toJwk(): JsonWebKey;
 
@@ -20,11 +20,11 @@ export abstract class CoseKey {
     return CoseKey.fromJwk(keyObject.export({ format: "jwk" }) as JsonWebKey);
   }
 
-  public toDer(): Uint8Array {
-    return this.toKeyObject().export({ format: "der", type: "spki" });
+  public toDer(): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(this.toKeyObject().export({ format: "der", type: "spki" }));
   }
 
-  public static fromDer(der: Uint8Array): CoseKey {
+  public static fromDer(der: Uint8Array<ArrayBuffer>): CoseKey {
     return CoseKey.fromKeyObject(crypto.createPublicKey({ format: "der", type: "spki", key: Buffer.from(der) }));
   }
 
@@ -32,7 +32,7 @@ export abstract class CoseKey {
     return this.toKeyObject().equals(other.toKeyObject());
   }
 
-  public static fromBytes(bytes: Uint8Array): CoseKey {
+  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKey {
     const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
     switch (coseKey[3]) {
       case -7:
@@ -56,13 +56,13 @@ export abstract class CoseKey {
 
 class CoseKeyP256 extends CoseKey {
   constructor(
-    public x: Uint8Array,
-    public y: Uint8Array,
+    public x: Uint8Array<ArrayBuffer>,
+    public y: Uint8Array<ArrayBuffer>,
   ) {
     super(2, -7);
   }
 
-  public toBytes(): Uint8Array {
+  public toBytes(): Uint8Array<ArrayBuffer> {
     const coseKey = {
       1: this.kty,
       3: this.alg,
@@ -82,9 +82,9 @@ class CoseKeyP256 extends CoseKey {
     };
   }
 
-  public static fromBytes(bytes: Uint8Array): CoseKeyP256 {
+  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyP256 {
     const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyP256(coseKey[-2] as Uint8Array, coseKey[-3] as Uint8Array);
+    return new CoseKeyP256(coseKey[-2] as Uint8Array<ArrayBuffer>, coseKey[-3] as Uint8Array<ArrayBuffer>);
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyP256 {
@@ -93,11 +93,11 @@ class CoseKeyP256 extends CoseKey {
 }
 
 class CoseKeyEd25519 extends CoseKey {
-  constructor(public x: Uint8Array) {
+  constructor(public x: Uint8Array<ArrayBuffer>) {
     super(1, -8);
   }
 
-  public toBytes(): Uint8Array {
+  public toBytes(): Uint8Array<ArrayBuffer> {
     const coseKey = {
       1: this.kty,
       3: this.alg,
@@ -115,9 +115,9 @@ class CoseKeyEd25519 extends CoseKey {
     };
   }
 
-  public static fromBytes(bytes: Uint8Array): CoseKeyEd25519 {
+  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyEd25519 {
     const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyEd25519(coseKey[-2] as Uint8Array);
+    return new CoseKeyEd25519(coseKey[-2] as Uint8Array<ArrayBuffer>);
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyEd25519 {
@@ -127,13 +127,13 @@ class CoseKeyEd25519 extends CoseKey {
 
 class CoseKeyRSA extends CoseKey {
   constructor(
-    public n: Uint8Array,
-    public e: Uint8Array,
+    public n: Uint8Array<ArrayBuffer>,
+    public e: Uint8Array<ArrayBuffer>,
   ) {
     super(3, -257);
   }
 
-  public toBytes(): Uint8Array {
+  public toBytes(): Uint8Array<ArrayBuffer> {
     const coseKey = {
       1: this.kty,
       3: this.alg,
@@ -151,9 +151,9 @@ class CoseKeyRSA extends CoseKey {
     };
   }
 
-  public static fromBytes(bytes: Uint8Array): CoseKeyRSA {
+  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyRSA {
     const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyRSA(coseKey[-1] as Uint8Array, coseKey[-2] as Uint8Array);
+    return new CoseKeyRSA(coseKey[-1] as Uint8Array<ArrayBuffer>, coseKey[-2] as Uint8Array<ArrayBuffer>);
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyRSA {

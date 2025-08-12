@@ -13,40 +13,40 @@ export type AuthenticatorInteractionOptions = {
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialRequest {
-  clientDataHash: Uint8Array;
+  clientDataHash: Uint8Array<ArrayBuffer>;
   rp: PublicKeyCredentialRpEntity & { id: string };
   user: PublicKeyCredentialUserEntity;
   pubKeyCredParams: PublicKeyCredentialParameters[];
   excludeList?: PublicKeyCredentialDescriptor[];
   extensions?: object;
   options?: Partial<AuthenticatorOptions>;
-  pinAuth?: Uint8Array;
+  pinAuth?: Uint8Array<ArrayBuffer>;
   pinProtocol?: number;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorMakeCredential */
 export interface AuthenticatorMakeCredentialResponse {
   fmt: string;
-  authData: Uint8Array;
+  authData: Uint8Array<ArrayBuffer>;
   attStmt: object;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion */
 export interface AuthenticatorGetAssertionRequest {
   rpId: string;
-  clientDataHash: Uint8Array;
+  clientDataHash: Uint8Array<ArrayBuffer>;
   allowList?: PublicKeyCredentialDescriptor[];
   extensions?: object;
   options?: Partial<AuthenticatorOptions>;
-  pinAuth?: Uint8Array;
+  pinAuth?: Uint8Array<ArrayBuffer>;
   pinProtocol?: number;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetAssertion */
 export interface AuthenticatorGetAssertionResponse {
   credential?: PublicKeyCredentialDescriptor;
-  authData: Uint8Array;
-  signature: Uint8Array;
+  authData: Uint8Array<ArrayBuffer>;
+  signature: Uint8Array<ArrayBuffer>;
   user?: PublicKeyCredentialUserEntity;
   numberOfCredentials: number;
 }
@@ -55,7 +55,7 @@ export interface AuthenticatorGetAssertionResponse {
 export type AuthenticatorGetInfoResponse = {
   versions: string[];
   extensions?: string[];
-  aaguid: Uint8Array;
+  aaguid: Uint8Array<ArrayBuffer>;
   options?: Partial<AuthenticatorOptions> & { plat?: boolean; clientPin?: boolean };
   maxMsgSize?: number;
   pinProtocols?: number[];
@@ -98,38 +98,38 @@ export enum CREDENTIAL_MANAGEMENT_SUBCOMMAND {
 export interface AuthenticatorCredentialManagementRequest {
   subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND;
   subCommandParams?: {
-    credentialId?: Uint8Array;
+    credentialId?: Uint8Array<ArrayBuffer>;
     rpId?: string;
     user?: PublicKeyCredentialUserEntity;
   };
   pinUvAuthProtocol?: number;
-  pinUvAuthParam?: Uint8Array;
+  pinUvAuthParam?: Uint8Array<ArrayBuffer>;
 }
 
 export interface AuthenticatorCredentialManagementResponse {
   existingResidentCredentialsCount?: number;
   maxPossibleRemainingResidentCredentialsCount?: number;
   rp?: PublicKeyCredentialRpEntity;
-  rpIDHash?: Uint8Array;
+  rpIDHash?: Uint8Array<ArrayBuffer>;
   totalRPs?: number;
   user?: PublicKeyCredentialUserEntity;
-  credentialID?: Uint8Array;
-  publicKey?: Uint8Array;
+  credentialID?: Uint8Array<ArrayBuffer>;
+  publicKey?: Uint8Array<ArrayBuffer>;
   totalCredentials?: number;
   credProtect?: number;
-  largeBlobKey?: Uint8Array;
+  largeBlobKey?: Uint8Array<ArrayBuffer>;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#responses */
 export interface CTAPAuthenticatorResponse {
   status: CTAP_STATUS_CODE;
-  data?: Uint8Array;
+  data?: Uint8Array<ArrayBuffer>;
 }
 
 /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#commands */
 export interface CTAPAuthenticatorRequest {
   command: CTAP_COMMAND;
-  data?: Uint8Array;
+  data?: Uint8Array<ArrayBuffer>;
 }
 
 // Not standard functions and interfaces
@@ -264,7 +264,7 @@ export function unpackCredentialManagementRequest(
   request: CTAPAuthenticatorRequest,
 ): AuthenticatorCredentialManagementRequest {
   try {
-    const data = EncodeUtils.decodeCbor(request.data as Uint8Array) as Record<number, unknown>;
+    const data = EncodeUtils.decodeCbor(request.data as Uint8Array<ArrayBuffer>) as Record<number, unknown>;
     const subCommandParams = data[0x02] as Record<number, unknown> | undefined;
 
     return {
@@ -288,7 +288,7 @@ export function unpackCredentialManagementRequest(
 
 export function unpackMakeCredentialResponse(response: CTAPAuthenticatorResponse): AuthenticatorMakeCredentialResponse {
   try {
-    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Record<number, unknown>;
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array<ArrayBuffer>) as Record<number, unknown>;
     return {
       fmt: data[0x01] as string,
       authData: EncodeUtils.bufferSourceToUint8Array(data[0x02] as BufferSource),
@@ -312,7 +312,7 @@ export function packMakeCredentialResponse(response: AuthenticatorMakeCredential
 
 export function unpackGetAssertionResponse(response: CTAPAuthenticatorResponse): AuthenticatorGetAssertionResponse {
   try {
-    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Record<number, unknown>;
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array<ArrayBuffer>) as Record<number, unknown>;
     return {
       credential: data[0x01] as PublicKeyCredentialDescriptor | undefined,
       authData: EncodeUtils.bufferSourceToUint8Array(data[0x02] as BufferSource),
@@ -340,7 +340,7 @@ export function packGetAssertionResponse(response: AuthenticatorGetAssertionResp
 
 export function unpackGetInfoResponse(response: CTAPAuthenticatorResponse): AuthenticatorGetInfoResponse {
   try {
-    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Record<number, unknown>;
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array<ArrayBuffer>) as Record<number, unknown>;
     return {
       versions: data[0x01] as string[],
       extensions: data[0x02] as string[] | undefined,
@@ -393,7 +393,7 @@ export function unpackCredentialManagementResponse(
   response: CTAPAuthenticatorResponse,
 ): AuthenticatorCredentialManagementResponse {
   try {
-    const data = EncodeUtils.decodeCbor(response.data as Uint8Array) as Record<number, unknown>;
+    const data = EncodeUtils.decodeCbor(response.data as Uint8Array<ArrayBuffer>) as Record<number, unknown>;
 
     return {
       existingResidentCredentialsCount: data[0x01] as number | undefined,

@@ -225,7 +225,7 @@ export class WebAuthnEmulator {
     const authenticatorRequest = packGetAssertionRequest({
       rpId: rpId.value,
       clientDataHash: EncodeUtils.bufferSourceToUint8Array(
-        createHash("sha256").update(JSON.stringify(clientData)).digest(),
+        new Uint8Array(createHash("sha256").update(JSON.stringify(clientData)).digest()),
       ),
       allowList: options.publicKey.allowCredentials,
       options: toFido2RequestOptions(options.publicKey.userVerification),
@@ -241,13 +241,13 @@ export class WebAuthnEmulator {
     const publicKeyCredential: RequestPublicKeyCredential = {
       id: EncodeUtils.encodeBase64Url(rawId),
       type: "public-key",
-      rawId,
+      rawId: rawId.buffer,
       response: {
-        clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)),
-        authenticatorData: packAuthenticatorData(authData),
-        signature: authenticatorResponse.signature,
+        clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)).buffer,
+        authenticatorData: packAuthenticatorData(authData).buffer,
+        signature: authenticatorResponse.signature.buffer,
         userHandle: authenticatorResponse.user
-          ? EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id)
+          ? EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id).buffer
           : null,
       },
       authenticatorAttachment: null,
@@ -279,7 +279,9 @@ export class WebAuthnEmulator {
     const clientDataJSON = JSON.stringify(clientData);
 
     const authenticatorRequest = packMakeCredentialRequest({
-      clientDataHash: EncodeUtils.bufferSourceToUint8Array(createHash("sha256").update(clientDataJSON).digest()),
+      clientDataHash: EncodeUtils.bufferSourceToUint8Array(
+        new Uint8Array(createHash("sha256").update(clientDataJSON).digest()),
+      ),
       rp: { name: options.publicKey.rp.name, id: rpId.value },
       user: options.publicKey.user,
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
@@ -298,11 +300,11 @@ export class WebAuthnEmulator {
     };
 
     const response: AuthenticatorAttestationResponse = {
-      attestationObject: packAttestationObject(attestationObject),
-      clientDataJSON: EncodeUtils.strToUint8Array(clientDataJSON),
+      attestationObject: packAttestationObject(attestationObject).buffer,
+      clientDataJSON: EncodeUtils.strToUint8Array(clientDataJSON).buffer,
 
-      getAuthenticatorData: () => packAuthenticatorData(authData),
-      getPublicKey: () => attestedCredentialData.credentialPublicKey.toDer(),
+      getAuthenticatorData: () => packAuthenticatorData(authData).buffer,
+      getPublicKey: () => attestedCredentialData.credentialPublicKey.toDer().buffer,
       getPublicKeyAlgorithm: () => attestedCredentialData.credentialPublicKey.alg,
       getTransports: () => this.authenticator.params.transports,
     };
@@ -310,7 +312,7 @@ export class WebAuthnEmulator {
     const publicKeyCredential: CreatePublicKeyCredential = {
       id: EncodeUtils.encodeBase64Url(attestedCredentialData.credentialId),
       type: "public-key",
-      rawId: attestedCredentialData.credentialId,
+      rawId: attestedCredentialData.credentialId.buffer,
       response,
       authenticatorAttachment: null,
       getClientExtensionResults: () => ({ credProps: { rk: true } }),

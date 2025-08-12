@@ -7,7 +7,7 @@ import { CoseKey } from "./cose-key";
 export class RpId {
   constructor(public readonly value: string) {}
 
-  public get hash(): Uint8Array {
+  public get hash(): Uint8Array<ArrayBuffer> {
     return new Uint8Array(createHash("sha256").update(this.value).digest());
   }
 
@@ -41,22 +41,22 @@ export class RpId {
 /** @see https://www.w3.org/TR/webauthn-3/#public-key-credential-source */
 export type PublicKeyCredentialSource = {
   type: "public-key";
-  id: Uint8Array;
-  privateKey: Uint8Array;
+  id: Uint8Array<ArrayBuffer>;
+  privateKey: Uint8Array<ArrayBuffer>;
   rpId: RpId;
-  userHandle?: Uint8Array;
+  userHandle?: Uint8Array<ArrayBuffer>;
 };
 
 /** @see https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data */
 export type AttestedCredentialData = {
-  aaguid: Uint8Array;
-  credentialId: Uint8Array;
+  aaguid: Uint8Array<ArrayBuffer>;
+  credentialId: Uint8Array<ArrayBuffer>;
   credentialPublicKey: CoseKey;
 };
 
 /** @see https://www.w3.org/TR/webauthn-3/#sctn-authenticator-data */
 export type AuthenticatorData = {
-  rpIdHash: Uint8Array;
+  rpIdHash: Uint8Array<ArrayBuffer>;
   flags: {
     userPresent?: boolean;
     userVerified?: boolean;
@@ -85,7 +85,7 @@ export type CollectedClientData = {
   crossOrigin: boolean;
 };
 
-export function packAttestationObject(attestationObject: AttestationObject): Uint8Array {
+export function packAttestationObject(attestationObject: AttestationObject): Uint8Array<ArrayBuffer> {
   return EncodeUtils.encodeCbor({
     fmt: attestationObject.fmt,
     attStmt: attestationObject.attStmt,
@@ -93,7 +93,7 @@ export function packAttestationObject(attestationObject: AttestationObject): Uin
   });
 }
 
-export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array {
+export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array<ArrayBuffer> {
   const ret: Array<number> = [];
   const cred = authData.attestedCredentialData;
   ret.push(...authData.rpIdHash);
@@ -103,14 +103,14 @@ export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array {
   return new Uint8Array(ret);
 }
 
-function packSignCount(signCount: number): Uint8Array {
+function packSignCount(signCount: number): Uint8Array<ArrayBuffer> {
   const ret = new ArrayBuffer(4);
   const view = new DataView(ret);
   view.setUint32(0, signCount, false);
   return new Uint8Array(ret);
 }
 
-function packAttestedCredentialData(attestedCredentialData: AttestedCredentialData): Uint8Array {
+function packAttestedCredentialData(attestedCredentialData: AttestedCredentialData): Uint8Array<ArrayBuffer> {
   const ret: Array<number> = [];
   const rawId = attestedCredentialData.credentialId;
   const credentialIdLength = [rawId.length >> 8, rawId.length & 0xff];
@@ -133,10 +133,12 @@ function packAuthenticatorDataFlags(flags: AuthenticatorData["flags"]): number {
   );
 }
 
-export function unpackAttestationObject(attestationObject: Uint8Array): AttestationObject {
-  const { fmt, attStmt, authData } = EncodeUtils.decodeCbor<{ fmt: string; attStmt: object; authData: Uint8Array }>(
-    attestationObject,
-  );
+export function unpackAttestationObject(attestationObject: Uint8Array<ArrayBuffer>): AttestationObject {
+  const { fmt, attStmt, authData } = EncodeUtils.decodeCbor<{
+    fmt: string;
+    attStmt: object;
+    authData: Uint8Array<ArrayBuffer>;
+  }>(attestationObject);
   return {
     fmt,
     attStmt,
@@ -144,7 +146,7 @@ export function unpackAttestationObject(attestationObject: Uint8Array): Attestat
   };
 }
 
-export function unpackAuthenticatorData(authData: Uint8Array): AuthenticatorData {
+export function unpackAuthenticatorData(authData: Uint8Array<ArrayBuffer>): AuthenticatorData {
   const rpIdHash = authData.slice(0, 32);
   const flags = unpackAuthenticatorDataFlags(authData[32]);
   const signCount = (authData[33] << 24) | (authData[34] << 16) | (authData[35] << 8) | authData[36];
@@ -154,7 +156,7 @@ export function unpackAuthenticatorData(authData: Uint8Array): AuthenticatorData
   return { rpIdHash, flags, signCount, attestedCredentialData };
 }
 
-function unpackAttestedCredentialData(data: Uint8Array): AttestedCredentialData {
+function unpackAttestedCredentialData(data: Uint8Array<ArrayBuffer>): AttestedCredentialData {
   const aaguid = data.slice(0, 16);
   const credentialIdLength = (data[16] << 8) | data[17];
   const credentialId = data.slice(18, 18 + credentialIdLength);
