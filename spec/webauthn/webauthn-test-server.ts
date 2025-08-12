@@ -19,7 +19,7 @@ type UserModel = {
 
 type CredentialRecord = {
   id: string;
-  publicKey: Uint8Array;
+  publicKey: Uint8Array<ArrayBuffer>;
   user: UserModel;
   webauthnUserID: string;
   counter: number;
@@ -72,7 +72,7 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     const registrationInfo = verification.registrationInfo;
     this.credentials.push({
       id: response.id,
-      publicKey: registrationInfo.credential.publicKey,
+      publicKey: registrationInfo.credential.publicKey as Uint8Array<ArrayBuffer>,
       user,
       webauthnUserID: user.id,
       counter: registrationInfo.credential.counter,

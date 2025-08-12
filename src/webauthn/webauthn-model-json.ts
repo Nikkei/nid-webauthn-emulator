@@ -311,7 +311,7 @@ export function encodeBase64Url(buffer: BufferSource): string {
     }
     return bufferSource.buffer.slice(bufferSource.byteOffset, bufferSource.byteOffset + bufferSource.byteLength);
   };
-  return btoa(String.fromCharCode(...new Uint8Array(toArrayBuffer(buffer))))
+  return btoa(String.fromCharCode(...new Uint8Array<ArrayBuffer>(toArrayBuffer(buffer))))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=/g, "");

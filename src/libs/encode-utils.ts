@@ -9,7 +9,7 @@ function encodeBase64Url(data: BufferSource): string {
   return btoa(binaryString).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function decodeBase64Url(base64Url: string): Uint8Array {
+function decodeBase64Url(base64Url: string): Uint8Array<ArrayBuffer> {
   const binaryString = atob(base64Url.replace(/-/g, "+").replace(/_/g, "/"));
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
@@ -18,20 +18,23 @@ function decodeBase64Url(base64Url: string): Uint8Array {
   return bytes;
 }
 
-function bufferSourceToUint8Array(data: BufferSource): Uint8Array {
+function bufferSourceToUint8Array(data: BufferSource): Uint8Array<ArrayBuffer> {
   if (data instanceof ArrayBuffer) {
     return new Uint8Array(data);
   }
   return new Uint8Array(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
 }
 
-function strToUint8Array(data: string): Uint8Array {
+function strToUint8Array(data: string): Uint8Array<ArrayBuffer> {
   return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
 }
 
-function encodeCbor(data: object): Uint8Array {
+function encodeCbor(data: object): Uint8Array<ArrayBuffer> {
   function encoder(value: unknown): unknown {
-    if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
+    if (value instanceof Uint8Array) {
+      return Buffer.from(value);
+    }
+    if (value instanceof ArrayBuffer) {
       return Buffer.from(value);
     }
     if (value instanceof Buffer) {
@@ -57,7 +60,7 @@ function encodeCbor(data: object): Uint8Array {
   return new Uint8Array(cbor.encode(encoder(data)));
 }
 
-function decodeCbor<T>(data: Uint8Array): T {
+function decodeCbor<T>(data: Uint8Array<ArrayBuffer>): T {
   const canonicalData = cbor.decode(data) as Map<unknown, unknown>;
   function decoder(value: unknown): unknown {
     if (value instanceof Buffer) {
