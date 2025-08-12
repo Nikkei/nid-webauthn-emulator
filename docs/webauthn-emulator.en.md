@@ -52,11 +52,20 @@ A class that mimics the main functionality of the WebAuthn protocol.
 
 ## Error Handling
 
-Custom error classes are defined:
+The WebAuthn emulator maps internal CTAP errors to WebAuthn-facing exceptions.
 
-- `WebAuthnEmulatorError`: General emulator error
-- `NoPublicKeyError`: Error when no public key options are provided
-- `InvalidRpIdError`: Error when an invalid Relying Party ID is detected
+- Input validation
+  - Missing `publicKey` in `create`/`get`: throws `TypeError`.
+  - Invalid RP ID for the given origin: throws `DOMException` with name `SecurityError`.
+
+- CTAP to DOMException mapping (thrown by `create`/`get`/management APIs)
+  - `CTAP2_ERR_CREDENTIAL_EXCLUDED` → `DOMException("NotAllowedError")`
+  - `CTAP2_ERR_UNSUPPORTED_ALGORITHM` → `DOMException("NotSupportedError")`
+  - `CTAP2_ERR_OPERATION_DENIED`, `CTAP2_ERR_NOT_ALLOWED`, `CTAP2_ERR_NO_CREDENTIALS` → `DOMException("NotAllowedError")`
+  - `CTAP1_ERR_INVALID_PARAMETER`, `CTAP2_ERR_INVALID_CBOR` → `DOMException("DataError")`
+  - Any other CTAP error → `DOMException("UnknownError")`
+
+- Other (non-CTAP) errors thrown by the authenticator are rethrown as-is and are not converted to `DOMException`.
 
 ## Important Notes
 

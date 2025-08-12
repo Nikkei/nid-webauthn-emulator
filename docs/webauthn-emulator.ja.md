@@ -52,11 +52,20 @@ WebAuthn プロトコルの主要な機能を模倣するクラスです。
 
 ## エラーハンドリング
 
-カスタムエラークラスが定義されています：
+WebAuthn エミュレータは内部の CTAP エラーを WebAuthn で期待される例外へマッピングします。
 
-- `WebAuthnEmulatorError`: 一般的なエミュレータエラー
-- `NoPublicKeyError`: 公開鍵オプションが提供されていない場合のエラー
-- `InvalidRpIdError`: 無効な Relying Party ID が検出された場合のエラー
+- 入力検証
+  - `create` / `get` の `publicKey` 未指定: `TypeError` を投げます。
+  - Origin と RP ID の不一致: `DOMException` の `SecurityError` を投げます。
+
+- CTAP → DOMException マッピング（`create` / `get` / 管理 API で発生）
+  - `CTAP2_ERR_CREDENTIAL_EXCLUDED` → `DOMException("NotAllowedError")`
+  - `CTAP2_ERR_UNSUPPORTED_ALGORITHM` → `DOMException("NotSupportedError")`
+  - `CTAP2_ERR_OPERATION_DENIED` / `CTAP2_ERR_NOT_ALLOWED` / `CTAP2_ERR_NO_CREDENTIALS` → `DOMException("NotAllowedError")`
+  - `CTAP1_ERR_INVALID_PARAMETER` / `CTAP2_ERR_INVALID_CBOR` → `DOMException("DataError")`
+  - 上記以外の CTAP エラー → `DOMException("UnknownError")`
+
+- Authenticator が投げる CTAP 以外のエラーは `DOMException` に変換せず、そのまま再スローします。
 
 ## 注意事項
 
