@@ -31,14 +31,14 @@ function strToUint8Array(data: string): Uint8Array<ArrayBuffer> {
 
 function encodeCbor(data: object): Uint8Array<ArrayBuffer> {
   function encoder(value: unknown): unknown {
+    if (value instanceof Buffer) {
+      return value;
+    }
     if (value instanceof Uint8Array) {
       return Buffer.from(value);
     }
     if (value instanceof ArrayBuffer) {
       return Buffer.from(value);
-    }
-    if (value instanceof Buffer) {
-      return value;
     }
     if (Array.isArray(value)) {
       return value.map((v) => encoder(v));

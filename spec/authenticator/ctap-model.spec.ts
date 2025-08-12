@@ -1,18 +1,25 @@
 import { describe, expect, test } from "@jest/globals";
 import {
+  type AuthenticatorCredentialManagementRequest,
   type AuthenticatorGetAssertionRequest,
   type AuthenticatorGetAssertionResponse,
   type AuthenticatorGetInfoResponse,
   type AuthenticatorMakeCredentialRequest,
   type AuthenticatorMakeCredentialResponse,
+  CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   CTAP_COMMAND,
+  CTAP_STATUS_CODE,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
+  packCredentialManagementRequest,
+  packCredentialManagementResponse,
   packGetAssertionRequest,
   packGetAssertionResponse,
   packGetInfoResponse,
   packMakeCredentialRequest,
   packMakeCredentialResponse,
+  unpackCredentialManagementRequest,
+  unpackCredentialManagementResponse,
   unpackGetAssertionResponse,
   unpackGetInfoResponse,
   unpackMakeCredentialResponse,
@@ -124,5 +131,98 @@ describe("CTAP Model Test", () => {
       data: new Uint8Array([1, 2, 3, 4, 5]),
     };
     expect(() => unpackRequest(request)).toThrow("CTAP error: CTAP2_ERR_INVALID_CBOR (18)");
+  });
+
+  test("unpackRequest default branch returns undefined request for unhandled command", () => {
+    const req = { command: CTAP_COMMAND.authenticatorClientPIN } as const; // not explicitly handled in switch
+    const unpacked = unpackRequest(req);
+    expect(unpacked.command).toBe(CTAP_COMMAND.authenticatorClientPIN);
+    expect(unpacked.request).toBeUndefined();
+  });
+
+  test("credential management request with undefined optional params round-trips", () => {
+    const packed = packCredentialManagementRequest({
+      subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+      // subCommandParams and pinUvAuth* omitted intentionally
+    });
+    const unpacked = unpackCredentialManagementRequest(packed);
+    expect(unpacked.subCommand).toBe(CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin);
+    expect(unpacked.subCommandParams).toBeUndefined();
+    expect(unpacked.pinUvAuthParam).toBeUndefined();
+    expect(unpacked.pinUvAuthProtocol).toBeUndefined();
+  });
+
+  test("credential management response optional binary fields handled when absent/present", () => {
+    // Absent case
+    const packedAbsent = packCredentialManagementResponse({});
+    const absent = unpackCredentialManagementResponse(packedAbsent);
+    expect(absent.credentialID).toBeUndefined();
+    expect(absent.publicKey).toBeUndefined();
+    expect(absent.rpIDHash).toBeUndefined();
+    expect(absent.largeBlobKey).toBeUndefined();
+
+    // Present case
+    const bin = new Uint8Array([1, 2, 3]);
+    const packedPresent = packCredentialManagementResponse({
+      credentialID: bin,
+      publicKey: bin,
+      rpIDHash: bin,
+      largeBlobKey: bin,
+    });
+    const present = unpackCredentialManagementResponse(packedPresent);
+    expect(present.credentialID).toBeDefined();
+    expect(present.publicKey).toBeDefined();
+    expect(present.rpIDHash).toBeDefined();
+    expect(present.largeBlobKey).toBeDefined();
+    if (present.credentialID && present.publicKey && present.rpIDHash && present.largeBlobKey) {
+      expect(Array.from(present.credentialID)).toEqual([1, 2, 3]);
+      expect(Array.from(present.publicKey)).toEqual([1, 2, 3]);
+      expect(Array.from(present.rpIDHash)).toEqual([1, 2, 3]);
+      expect(Array.from(present.largeBlobKey)).toEqual([1, 2, 3]);
+    }
+  });
+
+  test("unpackCredentialManagementRequest throws on invalid CBOR", () => {
+    const bad: CTAPAuthenticatorRequest = {
+      command: CTAP_COMMAND.authenticatorCredentialManagement,
+      data: new Uint8Array([1, 2, 3]),
+    };
+    expect(() => unpackCredentialManagementRequest(bad)).toThrow(/CTAP2_ERR_INVALID_CBOR/);
+  });
+
+  test("unpackCredentialManagementResponse throws on invalid CBOR", () => {
+    const bad: CTAPAuthenticatorResponse = {
+      status: CTAP_STATUS_CODE.CTAP2_OK,
+      data: new Uint8Array([1, 2, 3]),
+    };
+    expect(() => unpackCredentialManagementResponse(bad)).toThrow(/CTAP2_ERR_INVALID_CBOR/);
+  });
+
+  test("unpackRequest CM includes pinUvAuthParam when present", () => {
+    const pin = new Uint8Array([7, 7]);
+    const packed = packCredentialManagementRequest({
+      subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+      subCommandParams: { rpId: "example.com" },
+      pinUvAuthParam: pin,
+    });
+    const unpacked = unpackRequest(packed);
+    const req = unpacked.request;
+    const isMgmt = (x: unknown): x is AuthenticatorCredentialManagementRequest =>
+      typeof x === "object" && x !== null && "subCommand" in (x as Record<string, unknown>);
+    expect(isMgmt(req)).toBe(true);
+    if (isMgmt(req)) {
+      expect(Array.from(req.pinUvAuthParam ?? new Uint8Array())).toEqual([7, 7]);
+    }
+  });
+
+  test("unpackCredentialManagementRequest includes pinUvAuthParam when present", () => {
+    const pin = new Uint8Array([9, 9]);
+    const packed = packCredentialManagementRequest({
+      subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+      subCommandParams: { rpId: "example.com" },
+      pinUvAuthParam: pin,
+    });
+    const req = unpackCredentialManagementRequest(packed);
+    expect(Array.from(req.pinUvAuthParam ?? new Uint8Array())).toEqual([9, 9]);
   });
 });

@@ -2,11 +2,17 @@ import { describe, expect, test } from "@jest/globals";
 import WebAuthnEmulator, {
   AuthenticationEmulatorError,
   AuthenticatorEmulator,
+  CTAP_COMMAND,
   CTAP_STATUS_CODE,
+  type CTAPAuthenticatorRequest,
+  type CTAPAuthenticatorResponse,
   InvalidRpIdError,
   NoPublicKeyError,
+  type PasskeysCredentialsRepository,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
+  packCredentialManagementResponse,
+  parseRequestOptionsFromJSON,
   toPublicKeyCredentialDescriptorJSON,
   unpackAuthenticatorData,
 } from "../../src";
@@ -469,5 +475,103 @@ describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
         displayName: "New Display Name",
       });
     }).toThrow(); // Should throw CTAP2_ERR_NO_CREDENTIALS
+  });
+});
+
+describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
+  test("rk=true when discoverable credential (user present)", async () => {
+    const emulator = new WebAuthnEmulator(new AuthenticatorEmulator());
+    const testServer = new WebAuthnTestServer();
+
+    const user = { username: "ext-user", id: "ext-user" };
+    const regOptions = await testServer.getRegistrationOptions(user);
+    const regResp = emulator.createJSON(TEST_RP_ORIGIN, regOptions);
+    await testServer.getRegistrationVerification(user, regResp);
+
+    const reqOptions = await testServer.getAuthenticationOptions();
+    const parsed = parseRequestOptionsFromJSON(reqOptions);
+    const cred = emulator.get(TEST_RP_ORIGIN, { publicKey: parsed });
+
+    const ext = cred.getClientExtensionResults();
+    expect("credProps" in ext && ext.credProps).toBeTruthy();
+    if ("credProps" in ext && ext.credProps) {
+      expect(ext.credProps.rk).toBe(true);
+    }
+  });
+
+  test("rk=false with stateless + single allowCredential (no user)", async () => {
+    const emulator = new WebAuthnEmulator(new AuthenticatorEmulator({ stateless: true }));
+    const testServer = new WebAuthnTestServer();
+
+    const user = { username: "ext-user2", id: "ext-user2" };
+    const regOptions = await testServer.getRegistrationOptions(user);
+    const regResp = emulator.createJSON(TEST_RP_ORIGIN, regOptions);
+    await testServer.getRegistrationVerification(user, regResp);
+
+    const reqOptions = await testServer.getAuthenticationOptions();
+    const singleAllow: PublicKeyCredentialRequestOptionsJSON = {
+      ...reqOptions,
+      allowCredentials: [{ type: "public-key", id: regResp.id }],
+    };
+
+    const parsed = parseRequestOptionsFromJSON(singleAllow);
+    const cred = emulator.get(TEST_RP_ORIGIN, { publicKey: parsed });
+    const ext = cred.getClientExtensionResults();
+    expect("credProps" in ext && ext.credProps).toBeTruthy();
+    if ("credProps" in ext && ext.credProps) {
+      expect(ext.credProps.rk).toBe(false);
+    }
+  });
+
+  test("signalAllAcceptedCredentials skips credentials when userId mismatches", async () => {
+    // repository-backed authenticator with isolated repository
+    const emulator = new WebAuthnEmulator(
+      new AuthenticatorEmulator({ credentialsRepository: new PasskeysCredentialsMemoryRepository() }),
+    );
+    const testServer = new WebAuthnTestServer();
+
+    const user = { username: "ext-user3", id: "ext-user3" };
+    const regOptions = await testServer.getRegistrationOptions(user);
+    const regResp = emulator.createJSON(TEST_RP_ORIGIN, regOptions);
+    const repository = emulator.authenticator.params.credentialsRepository as PasskeysCredentialsRepository;
+    await testServer.getRegistrationVerification(user, regResp);
+
+    // credentials exist
+    const before = repository.loadCredentials();
+    expect(before.length).toBe(1);
+    const existingId = before.map((c) => EncodeUtils.encodeBase64Url(c.publicKeyCredentialSource.id))[0];
+    const actualUserId = EncodeUtils.encodeBase64Url(before[0].user.id);
+    // ensure mismatch by altering actualUserId
+    const wrongUserId = `${actualUserId}-mismatch`;
+    emulator.signalAllAcceptedCredentials({
+      rpId: TEST_RP_ORIGIN.replace("https://", ""),
+      userId: wrongUserId,
+      allAcceptedCredentialIds: [], // even though empty, mismatch should skip deletion
+    });
+
+    const after = repository.loadCredentials();
+    const remainingIds = after.map((c) => EncodeUtils.encodeBase64Url(c.publicKeyCredentialSource.id));
+    expect(remainingIds).toContain(existingId); // original credential remains
+    expect(after.length).toBe(1); // unchanged
+  });
+
+  test("signalAllAcceptedCredentials handles undefined totalCredentials (defaults to 0)", async () => {
+    class BeginNoTotalAuthenticator extends AuthenticatorEmulator {
+      override command(request: CTAPAuthenticatorRequest): CTAPAuthenticatorResponse {
+        if (request.command === CTAP_COMMAND.authenticatorCredentialManagement) {
+          return packCredentialManagementResponse({});
+        }
+        return super.command(request);
+      }
+    }
+
+    const emulator = new WebAuthnEmulator(new BeginNoTotalAuthenticator());
+    expect(() =>
+      emulator.signalAllAcceptedCredentials({
+        rpId: TEST_RP_ORIGIN.replace("https://", ""),
+        userId: "any-user",
+        allAcceptedCredentialIds: [],
+      }),
+    ).not.toThrow();
   });
 });
