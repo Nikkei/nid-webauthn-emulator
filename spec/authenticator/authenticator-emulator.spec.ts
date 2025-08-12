@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, test } from "@jest/globals";
 import { AuthenticatorEmulator } from "../../src";
 import {
   AuthenticationEmulatorError,
+  type AuthenticatorCredentialManagementRequest,
+  type AuthenticatorCredentialManagementResponse,
   CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
   type CTAPAuthenticatorRequest,
+  packCredentialManagementRequest,
 } from "../../src/authenticator/ctap-model";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
@@ -291,6 +294,117 @@ describe("Authenticator Credential Management Tests", () => {
       expect(() => {
         statelessAuthenticator.authenticatorCredentialManagement(request);
       }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+    });
+  });
+
+  describe("Authenticator Credential Management additional error coverage", () => {
+    test("dispatch default branch throws invalid command", () => {
+      const authenticator = new AuthenticatorEmulator();
+      // Build a CTAP request with an unknown subCommand to hit default branch
+      const data = EncodeUtils.encodeCbor({ "1": -1 });
+      expect(() => authenticator.command({ command: CTAP_COMMAND.authenticatorCredentialManagement, data })).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND),
+      );
+    });
+
+    test("enumerateCredentialsBegin without repository throws not allowed", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const req = packCredentialManagementRequest({
+        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+        subCommandParams: { rpId: "example.com" },
+      });
+      expect(() => authenticator.command(req)).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
+      );
+    });
+
+    test("updateUserInformation without repository throws not allowed", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const req = packCredentialManagementRequest({
+        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
+        subCommandParams: { rpId: "example.com", user: { id: new Uint8Array([1]), name: "n", displayName: "d" } },
+      });
+      expect(() => authenticator.command(req)).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
+      );
+    });
+
+    test("deleteCredential without repository throws not allowed", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const req = packCredentialManagementRequest({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
+      expect(() => authenticator.command(req)).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
+      );
+    });
+
+    test("deleteCredential without credentialId throws invalid parameter", () => {
+      const authenticator = new AuthenticatorEmulator();
+      const req = packCredentialManagementRequest({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
+      expect(() => authenticator.command(req)).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER),
+      );
+    });
+
+    test("deleteCredential for non-existent id throws no credentials", () => {
+      const authenticator = new AuthenticatorEmulator();
+      const credentialId = EncodeUtils.strToUint8Array("non-existent-id");
+      const req = packCredentialManagementRequest({
+        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+        subCommandParams: { credentialId },
+      });
+      expect(() => authenticator.command(req)).toThrow(
+        new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS),
+      );
+    });
+
+    test("private enumerateCredentialsBegin guard throws not allowed when repository missing", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const target = (
+        authenticator as unknown as {
+          authenticatorEnumerateCredentialsBegin: (
+            this: AuthenticatorEmulator,
+            request: AuthenticatorCredentialManagementRequest,
+          ) => AuthenticatorCredentialManagementResponse;
+        }
+      ).authenticatorEnumerateCredentialsBegin.bind(authenticator);
+      const call = () =>
+        target({
+          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+          subCommandParams: { rpId: "x" },
+        });
+      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+    });
+
+    test("private updateUserInformation guard throws not allowed when repository missing", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const target = (
+        authenticator as unknown as {
+          authenticatorUpdateUserInformation: (
+            this: AuthenticatorEmulator,
+            request: AuthenticatorCredentialManagementRequest,
+          ) => AuthenticatorCredentialManagementResponse;
+        }
+      ).authenticatorUpdateUserInformation.bind(authenticator);
+      const call = () =>
+        target({
+          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
+          subCommandParams: { rpId: "x", user: { id: new Uint8Array([1]), name: "n", displayName: "d" } },
+        });
+      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+    });
+
+    test("private deleteCredential guard throws not allowed when repository missing", () => {
+      const authenticator = new AuthenticatorEmulator({ stateless: true });
+      const target = (
+        authenticator as unknown as {
+          authenticatorDeleteCredential: (
+            this: AuthenticatorEmulator,
+            request: AuthenticatorCredentialManagementRequest,
+          ) => AuthenticatorCredentialManagementResponse;
+        }
+      ).authenticatorDeleteCredential.bind(authenticator);
+      const call = () => target({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
+      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
   });
 });
