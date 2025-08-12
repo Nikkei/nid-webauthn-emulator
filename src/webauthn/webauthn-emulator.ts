@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
 import {
+  AuthenticationEmulatorError,
   CREDENTIAL_MANAGEMENT_SUBCOMMAND,
   CTAP_COMMAND,
+  CTAP_STATUS_CODE,
   packCredentialManagementRequest,
   packGetAssertionRequest,
   packMakeCredentialRequest,
@@ -50,14 +52,48 @@ export type AuthenticatorInfo = {
 };
 
 export class WebAuthnEmulatorError extends Error {}
-export class NoPublicKeyError extends WebAuthnEmulatorError {}
-export class InvalidRpIdError extends WebAuthnEmulatorError {}
 
 /**
  * WebAuthn emulator
  */
 export class WebAuthnEmulator {
   constructor(public authenticator: AuthenticatorEmulator = new AuthenticatorEmulator()) {}
+
+  private mapAuthenticatorErrorToDOMException(error: AuthenticationEmulatorError): DOMException {
+    let name: string;
+    switch (error.status) {
+      case CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED:
+        name = "NotAllowedError";
+        break;
+      case CTAP_STATUS_CODE.CTAP2_ERR_UNSUPPORTED_ALGORITHM:
+        name = "NotSupportedError";
+        break;
+      case CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED:
+      case CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED:
+      case CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS:
+        name = "NotAllowedError";
+        break;
+      case CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER:
+      case CTAP_STATUS_CODE.CTAP2_ERR_INVALID_CBOR:
+        name = "DataError";
+        break;
+      default:
+        name = "UnknownError";
+        break;
+    }
+    return new DOMException(error.message, name);
+  }
+
+  private handleAuthenticatorCall<T>(fn: () => T): T {
+    try {
+      return fn();
+    } catch (error) {
+      if (error instanceof AuthenticationEmulatorError) {
+        throw this.mapAuthenticatorErrorToDOMException(error);
+      }
+      throw error;
+    }
+  }
 
   public getJSON(
     origin: string,
@@ -80,8 +116,8 @@ export class WebAuthnEmulator {
   }
 
   public getAuthenticatorInfo(): AuthenticatorInfo {
-    const authenticatorInfo = unpackGetInfoResponse(
-      this.authenticator.command({ command: CTAP_COMMAND.authenticatorGetInfo }),
+    const authenticatorInfo = this.handleAuthenticatorCall(() =>
+      unpackGetInfoResponse(this.authenticator.command({ command: CTAP_COMMAND.authenticatorGetInfo })),
     );
     return {
       version: authenticatorInfo.versions.join(", "),
@@ -95,14 +131,16 @@ export class WebAuthnEmulator {
 
   public signalUnknownCredential(options: UnknownCredentialOptionsJSON): void {
     const credentialId = decodeBase64Url(options.credentialId);
-    this.authenticator.command(
-      packCredentialManagementRequest({
-        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
-        subCommandParams: {
-          credentialId: EncodeUtils.bufferSourceToUint8Array(credentialId),
-          rpId: options.rpId,
-        },
-      }),
+    this.handleAuthenticatorCall(() =>
+      this.authenticator.command(
+        packCredentialManagementRequest({
+          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+          subCommandParams: {
+            credentialId: EncodeUtils.bufferSourceToUint8Array(credentialId),
+            rpId: options.rpId,
+          },
+        }),
+      ),
     );
   }
 
@@ -115,14 +153,16 @@ export class WebAuthnEmulator {
     const acceptedCredentialIds = new Set(options.allAcceptedCredentialIds);
 
     // Start enumerating credentials for the specified RP
-    const beginResponse = unpackCredentialManagementResponse(
-      this.authenticator.command(
-        packCredentialManagementRequest({
-          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
-          subCommandParams: {
-            rpId: options.rpId,
-          },
-        }),
+    const beginResponse = this.handleAuthenticatorCall(() =>
+      unpackCredentialManagementResponse(
+        this.authenticator.command(
+          packCredentialManagementRequest({
+            subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
+            subCommandParams: {
+              rpId: options.rpId,
+            },
+          }),
+        ),
       ),
     );
 
@@ -145,11 +185,13 @@ export class WebAuthnEmulator {
     // Process each credential
     for (let i = 0; i < totalCredentials; i++) {
       // Get next credential and unpack the response
-      const credResponse = unpackCredentialManagementResponse(
-        this.authenticator.command(
-          packCredentialManagementRequest({
-            subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsGetNextCredential,
-          }),
+      const credResponse = this.handleAuthenticatorCall(() =>
+        unpackCredentialManagementResponse(
+          this.authenticator.command(
+            packCredentialManagementRequest({
+              subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsGetNextCredential,
+            }),
+          ),
         ),
       );
 
@@ -163,14 +205,16 @@ export class WebAuthnEmulator {
         const credentialId = EncodeUtils.encodeBase64Url(credResponse.credentialID);
         if (!acceptedCredentialIds.has(credentialId)) {
           // Delete the credential directly
-          this.authenticator.command(
-            packCredentialManagementRequest({
-              subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
-              subCommandParams: {
-                credentialId: credResponse.credentialID,
-                rpId: rpId,
-              },
-            }),
+          this.handleAuthenticatorCall(() =>
+            this.authenticator.command(
+              packCredentialManagementRequest({
+                subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
+                subCommandParams: {
+                  credentialId: credResponse.credentialID,
+                  rpId: rpId,
+                },
+              }),
+            ),
           );
         }
       }
@@ -192,14 +236,16 @@ export class WebAuthnEmulator {
     };
 
     // Update user information using the credential management API
-    this.authenticator.command(
-      packCredentialManagementRequest({
-        subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
-        subCommandParams: {
-          rpId: options.rpId,
-          user: user,
-        },
-      }),
+    this.handleAuthenticatorCall(() =>
+      this.authenticator.command(
+        packCredentialManagementRequest({
+          subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
+          subCommandParams: {
+            rpId: options.rpId,
+            user: user,
+          },
+        }),
+      ),
     );
   }
 
@@ -209,11 +255,11 @@ export class WebAuthnEmulator {
     options: CredentialRequestOptions,
     relatedOrigins: string[] = [],
   ): RequestPublicKeyCredential {
-    if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
+    if (!options.publicKey) throw new TypeError("PublicKeyCredentialRequestOptions are required");
 
     const rpId = new RpId(options.publicKey.rpId ?? new URL(origin).hostname);
     if (!rpId.validate(origin, relatedOrigins))
-      throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+      throw new DOMException(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`, "SecurityError");
 
     const clientData: CollectedClientData = {
       type: "webauthn.get",
@@ -230,7 +276,9 @@ export class WebAuthnEmulator {
       allowList: options.publicKey.allowCredentials,
       options: toFido2RequestOptions(options.publicKey.userVerification),
     });
-    const authenticatorResponse = unpackGetAssertionResponse(this.authenticator.command(authenticatorRequest));
+    const authenticatorResponse = this.handleAuthenticatorCall(() =>
+      unpackGetAssertionResponse(this.authenticator.command(authenticatorRequest)),
+    );
 
     const responseId =
       authenticatorResponse.credential?.id ?? (options.publicKey.allowCredentials?.[0]?.id as BufferSource);
@@ -264,11 +312,11 @@ export class WebAuthnEmulator {
     options: CredentialCreationOptions,
     relatedOrigins: string[] = [],
   ): CreatePublicKeyCredential {
-    if (!options.publicKey) throw new NoPublicKeyError("PublicKeyCredentialCreationOptions are required");
+    if (!options.publicKey) throw new TypeError("PublicKeyCredentialCreationOptions are required");
 
     const rpId = new RpId(options.publicKey.rp.id ?? new URL(origin).hostname);
     if (!rpId.validate(origin, relatedOrigins))
-      throw new InvalidRpIdError(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`);
+      throw new DOMException(`Invalid rpId: RP_ID=${rpId.value}, ORIGIN=${origin}`, "SecurityError");
 
     const clientData: CollectedClientData = {
       challenge: EncodeUtils.encodeBase64Url(options.publicKey.challenge),
@@ -288,7 +336,9 @@ export class WebAuthnEmulator {
       excludeList: options.publicKey.excludeCredentials,
       options: toFido2CreateOptions(options.publicKey.authenticatorSelection),
     });
-    const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
+    const authenticatorResponse = this.handleAuthenticatorCall(() =>
+      unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest)),
+    );
 
     const authData = unpackAuthenticatorData(authenticatorResponse.authData);
     const attestedCredentialData = authData.attestedCredentialData as AttestedCredentialData;
