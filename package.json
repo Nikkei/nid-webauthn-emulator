@@ -24,7 +24,7 @@
     "@jest/globals": "^30.0.4",
     "@simplewebauthn/server": "^13.1.2",
     "@tsconfig/recommended": "^1.0.10",
-    "@types/node": "^24.2.0",
+    "@types/node": "^24.3.0",
     "jest": "^30.0.5",
     "ts-jest": "^29.4.1",
     "ts-node": "^10.9.2",
