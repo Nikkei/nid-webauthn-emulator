@@ -6,8 +6,6 @@ import WebAuthnEmulator, {
   CTAP_STATUS_CODE,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
-  InvalidRpIdError,
-  NoPublicKeyError,
   type PasskeysCredentialsRepository,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
@@ -45,16 +43,21 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const testServer = new WebAuthnTestServer();
 
     const options = await testServer.getRegistrationOptions(user);
-    await expect(async () => {
-      emulator.createJSON(illegalOrigin, options);
-    }).rejects.toThrow(InvalidRpIdError);
+    const call = () => emulator.createJSON(illegalOrigin, options);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("SecurityError");
+    }
   });
 
   test("Create Passkeys with no public key credential parameters _ failed to response", async () => {
     const emulator = new WebAuthnEmulator();
-    await expect(async () => {
-      emulator.create(TEST_RP_ORIGIN, {});
-    }).rejects.toThrow(NoPublicKeyError);
+    const call = () => emulator.create(TEST_RP_ORIGIN, {});
+    expect(call).toThrow(TypeError);
   });
 
   test("Found in the exclude List _ CTAP Error", async () => {
@@ -64,9 +67,15 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const credential = emulator.createJSON(TEST_RP_ORIGIN, options);
     await testServer.getRegistrationVerification(user, credential);
     const options2 = await testServer.getRegistrationOptions(user);
-    await expect(async () => {
-      emulator.createJSON(TEST_RP_ORIGIN, options2);
-    }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_CREDENTIAL_EXCLUDED));
+    const call = () => emulator.createJSON(TEST_RP_ORIGIN, options2);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
   });
 
   test("Invalid algorithm _ CTAP Error", async () => {
@@ -74,9 +83,15 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const testServer = new WebAuthnTestServer();
     const options = await testServer.getRegistrationOptions(user);
     const illegalOptions = { ...options, pubKeyCredParams: [{ type: "public-key", alg: 99 } as const] };
-    await expect(async () => {
-      emulator.createJSON(TEST_RP_ORIGIN, illegalOptions);
-    }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_UNSUPPORTED_ALGORITHM));
+    const call = () => emulator.createJSON(TEST_RP_ORIGIN, illegalOptions);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotSupportedError");
+    }
   });
 
   test("User registration operation failed _ CTAP Error", async () => {
@@ -86,9 +101,15 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const emulator = new WebAuthnEmulator(authenticator);
     const testServer = new WebAuthnTestServer();
     const options = await testServer.getRegistrationOptions(user);
-    await expect(async () => {
-      emulator.createJSON(TEST_RP_ORIGIN, options);
-    }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED));
+    const call = () => emulator.createJSON(TEST_RP_ORIGIN, options);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
   });
 
   test("Create Passkeys without RP ID _ OK", async () => {
@@ -171,27 +192,39 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     const [emulator, testServer] = await createCredential();
     const illegalOrigin = `${TEST_RP_ORIGIN}_illegal`;
     const options = await testServer.getAuthenticationOptions();
-    await expect(async () => {
-      emulator.getJSON(illegalOrigin, options);
-    }).rejects.toThrow(InvalidRpIdError);
+    const call = () => emulator.getJSON(illegalOrigin, options);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("SecurityError");
+    }
   });
 
   test("Request Passkeys with no public key credential parameters _ failed to response", async () => {
     const emulator = new WebAuthnEmulator();
-    await expect(async () => {
-      emulator.get(TEST_RP_ORIGIN, {});
-    }).rejects.toThrow(NoPublicKeyError);
+    const call = () => emulator.get(TEST_RP_ORIGIN, {} as CredentialRequestOptions);
+    expect(call).toThrow(TypeError);
   });
 
   test("Not found in allow list _ CTAP Error", async () => {
     const [emulator, testServer] = await createCredential();
     const options = await testServer.getAuthenticationOptions();
-    await expect(async () => {
+    const call = () =>
       emulator.getJSON(TEST_RP_ORIGIN, {
         ...options,
         allowCredentials: [{ id: "AAAAAA", type: "public-key" }],
       });
-    }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
   });
 
   test("User authentication operation failed _ CTAP Error", async () => {
@@ -200,9 +233,15 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     });
     const [emulator, testServer] = await createCredential(authenticator);
     const options = await testServer.getAuthenticationOptions();
-    await expect(async () => {
-      emulator.getJSON(TEST_RP_ORIGIN, options);
-    }).rejects.toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED));
+    const call = () => emulator.getJSON(TEST_RP_ORIGIN, options);
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
   });
 
   test("Only one credential is allowed and RP ID is undefined _ credential is undefined and OK", async () => {
@@ -396,9 +435,15 @@ describe("WebAuthnEmulator relatedOrigins Test", () => {
     const authOptions = await testServer.getAuthenticationOptions();
 
     // Standard RP ID validation only
-    await expect(async () => {
-      emulator.getJSON(testServer.origin, authOptions);
-    }).rejects.toThrow(InvalidRpIdError);
+    const invalidCall = () => emulator.getJSON(testServer.origin, authOptions);
+    expect(invalidCall).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      invalidCall();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("SecurityError");
+    }
 
     // Related origins validation
     const authResponse = emulator.getJSON(testServer.origin, authOptions, relatedOrigins);
@@ -573,5 +618,184 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
         allAcceptedCredentialIds: [],
       }),
     ).not.toThrow();
+  });
+});
+
+describe("WebAuthnEmulator DOMException mapping coverage", () => {
+  test("signalCurrentUserDetails with invalid parameter → DataError", () => {
+    const emulator = new WebAuthnEmulator(new AuthenticatorEmulator());
+    const userId = EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("uid"));
+
+    const call = () =>
+      (emulator as unknown as { signalCurrentUserDetails: (o: unknown) => void }).signalCurrentUserDetails({
+        // Force rpId to be undefined to trigger CTAP1_ERR_INVALID_PARAMETER inside authenticator
+        rpId: undefined,
+        userId,
+        name: "n",
+        displayName: "d",
+      });
+
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("DataError");
+    }
+  });
+
+  test("getAuthenticatorInfo with invalid CBOR → DataError", () => {
+    class BadCborAuthenticator extends AuthenticatorEmulator {
+      override command(): CTAPAuthenticatorResponse {
+        return { status: CTAP_STATUS_CODE.CTAP2_OK, data: new Uint8Array([0xff]) } as CTAPAuthenticatorResponse;
+      }
+    }
+    const emulator = new WebAuthnEmulator(new BadCborAuthenticator());
+
+    const call = () => emulator.getAuthenticatorInfo();
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("DataError");
+    }
+  });
+
+  test("getAuthenticatorInfo with invalid command → UnknownError", () => {
+    class InvalidCommandAuthenticator extends AuthenticatorEmulator {
+      override command(): CTAPAuthenticatorResponse {
+        throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND);
+      }
+    }
+    const emulator = new WebAuthnEmulator(new InvalidCommandAuthenticator());
+
+    const call = () => emulator.getAuthenticatorInfo();
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("UnknownError");
+    }
+  });
+});
+
+describe("WebAuthnEmulator credential management error mapping", () => {
+  test("signalUnknownCredential on stateless authenticator → NotAllowedError", () => {
+    const emulator = new WebAuthnEmulator(new AuthenticatorEmulator({ stateless: true }));
+    const call = () =>
+      emulator.signalUnknownCredential({
+        rpId: "example.com",
+        credentialId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("nope")),
+      });
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
+  });
+
+  test("signalUnknownCredential for non-existent credential → NotAllowedError", async () => {
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({ credentialsRepository: repository });
+    const emulator = new WebAuthnEmulator(authenticator);
+    const call = () =>
+      emulator.signalUnknownCredential({
+        rpId: "example.com",
+        credentialId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("missing")),
+      });
+    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    try {
+      call();
+      throw new Error("Expected DOMException");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(DOMException);
+      expect((e as DOMException).name).toBe("NotAllowedError");
+    }
+  });
+});
+
+describe("WebAuthnEmulator invalid CBOR mapping on create/get", () => {
+  test("create path invalid CBOR → DataError", () => {
+    class BadCreateCborAuthenticator extends AuthenticatorEmulator {
+      override command(request: CTAPAuthenticatorRequest): CTAPAuthenticatorResponse {
+        if (request.command === CTAP_COMMAND.authenticatorMakeCredential) {
+          return { status: CTAP_STATUS_CODE.CTAP2_OK, data: new Uint8Array([0xff]) } as CTAPAuthenticatorResponse;
+        }
+        return super.command(request);
+      }
+    }
+    const emulator = new WebAuthnEmulator(new BadCreateCborAuthenticator());
+    const user = { username: "bad-cbor", id: "bad-cbor" };
+    const server = new WebAuthnTestServer();
+    return server.getRegistrationOptions(user).then((opts) => {
+      const call = () => emulator.createJSON(TEST_RP_ORIGIN, opts);
+      expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+      try {
+        call();
+        throw new Error("Expected DOMException");
+      } catch (e: unknown) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe("DataError");
+      }
+    });
+  });
+
+  test("get path invalid CBOR → DataError", () => {
+    class BadGetCborAuthenticator extends AuthenticatorEmulator {
+      override command(request: CTAPAuthenticatorRequest): CTAPAuthenticatorResponse {
+        if (request.command === CTAP_COMMAND.authenticatorGetAssertion) {
+          return { status: CTAP_STATUS_CODE.CTAP2_OK, data: new Uint8Array([0xff]) } as CTAPAuthenticatorResponse;
+        }
+        return super.command(request);
+      }
+    }
+
+    const emulator = new WebAuthnEmulator(new BadGetCborAuthenticator());
+    const server = new WebAuthnTestServer();
+    const user = { username: "bad-cbor2", id: "bad-cbor2" };
+    return server.getRegistrationOptions(user).then((reg) => {
+      const regResp = emulator.createJSON(TEST_RP_ORIGIN, reg);
+      return server.getRegistrationVerification(user, regResp).then(async () => {
+        const req = await server.getAuthenticationOptions();
+        const call = () => emulator.getJSON(TEST_RP_ORIGIN, req);
+        expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+        try {
+          call();
+          throw new Error("Expected DOMException");
+        } catch (e: unknown) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe("DataError");
+        }
+      });
+    });
+  });
+});
+
+describe("handleAuthenticatorCall other error path", () => {
+  test("getAuthenticatorInfo rethrows non-CTAP errors as-is", () => {
+    class ThrowingAuthenticator extends AuthenticatorEmulator {
+      override command(): CTAPAuthenticatorResponse {
+        throw new Error("Non-CTAP failure");
+      }
+    }
+    const emulator = new WebAuthnEmulator(new ThrowingAuthenticator());
+
+    try {
+      emulator.getAuthenticatorInfo();
+      throw new Error("Expected Error to be thrown");
+    } catch (e: unknown) {
+      // Should not be mapped to DOMException; should be the original error
+      expect(e).not.toBeInstanceOf(DOMException);
+      expect(e).toBeInstanceOf(Error);
+      expect((e as Error).message).toBe("Non-CTAP failure");
+    }
   });
 });
