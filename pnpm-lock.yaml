@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       cbor:
-        specifier: ^10.0.10
-        version: 10.0.10
+        specifier: ^10.0.11
+        version: 10.0.11
       tldts:
         specifier: ^7.0.12
         version: 7.0.12
@@ -731,8 +731,8 @@ packages:
   caniuse-lite@1.0.30001735:
     resolution: {integrity: sha512-EV/laoX7Wq2J9TQlyIXRxTJqIw4sxfXS4OYgudGxBYRuTv0q7AM6yMEpU/Vo1I94thg9U6EZ2NfZx9GJq83u7w==}
 
-  cbor@10.0.10:
-    resolution: {integrity: sha512-EirvzAg0G4okCsdTfTjLWHU+tToQ2V2ptO3577Vyy2GOTeVJad99uCIuDqdK7ppFRRcEuigyJY6TJ59wv5JpSg==}
+  cbor@10.0.11:
+    resolution: {integrity: sha512-vIwORDd/WyB8Nc23o2zNN5RrtFGlR6Fca61TtjkUXueI3Jf2DOZDl1zsshvBntZ3wZHBM9ztjnkXSmzQDaq3WA==}
     engines: {node: '>=20'}
 
   chalk@4.1.2:
@@ -2493,7 +2493,7 @@ snapshots:
 
   caniuse-lite@1.0.30001735: {}
 
-  cbor@10.0.10:
+  cbor@10.0.11:
     dependencies:
       nofilter: 3.1.0
 
