@@ -38,5 +38,3 @@ jobs:
 
       - name: Publish
         run: pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPMJS_ACCESS_TOKEN}}
