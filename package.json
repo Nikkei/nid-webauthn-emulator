@@ -22,7 +22,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.6",
     "@jest/globals": "^30.2.0",
-    "@simplewebauthn/server": "^13.2.1",
+    "@simplewebauthn/server": "^13.2.2",
     "@tsconfig/recommended": "^1.0.10",
     "@types/node": "^24.7.2",
     "jest": "^30.2.0",
