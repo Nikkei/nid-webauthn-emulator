@@ -23,7 +23,7 @@
     "@biomejs/biome": "^2.3.1",
     "@jest/globals": "^30.2.0",
     "@simplewebauthn/server": "^13.2.2",
-    "@tsconfig/recommended": "^1.0.10",
+    "@tsconfig/recommended": "^1.0.11",
     "@types/node": "^24.9.1",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
