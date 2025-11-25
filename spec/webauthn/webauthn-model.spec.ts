@@ -95,22 +95,22 @@ describe("WebAuthn Model Test", () => {
       { requireResidentKey: false, userVerification: "preferred" },
       { rk: false, uv: true, up: true },
     ],
-  ] as [AuthenticatorSelectionCriteria, AuthenticatorOptions][])(
-    "toFido2CreateOptions test: $a",
-    (criteria, expected) => {
-      expect(toFido2CreateOptions(criteria)).toEqual(expected);
-    },
-  );
+  ] as [
+    AuthenticatorSelectionCriteria,
+    AuthenticatorOptions,
+  ][])("toFido2CreateOptions test: $a", (criteria, expected) => {
+    expect(toFido2CreateOptions(criteria)).toEqual(expected);
+  });
 
   test.each([
     ["required", true],
     ["preferred", true],
     ["discouraged", false],
     [undefined, false],
-  ] as [UserVerificationRequirement | undefined, boolean][])(
-    "UserVerificationRequirement test: $a",
-    (criteria, expected) => {
-      expect(toFido2RequestOptions(criteria).uv).toEqual(expected);
-    },
-  );
+  ] as [
+    UserVerificationRequirement | undefined,
+    boolean,
+  ][])("UserVerificationRequirement test: $a", (criteria, expected) => {
+    expect(toFido2RequestOptions(criteria).uv).toEqual(expected);
+  });
 });
