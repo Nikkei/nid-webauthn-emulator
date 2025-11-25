@@ -46,7 +46,7 @@ function encodeCbor(data: object): Uint8Array<ArrayBuffer> {
     if (typeof value === "object" && value !== null) {
       const encodedData = new Map<unknown, unknown>();
       for (const [k, v] of Object.entries(value)) {
-        const ki = Number.parseInt(k);
+        const ki = Number.parseInt(k, 10);
         if (Number.isNaN(ki)) {
           encodedData.set(k, encoder(v));
         } else {
