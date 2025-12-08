@@ -201,13 +201,32 @@ test.describe("Passkeys Tests", { tag: ["@daily"] }, () => {
 await page.evaluate(BrowserInjection.HookWebAuthnApis);
 ```
 
-`BrowserInjection.HookWebAuthnApis` は JavaScript 関数のシリアライズされた文字列であり、評価すると下記のような処理を行います。
+## ユニットテストでの WebAuthn API フック
 
-- `navigator.credentials.get` の定義を上書きし、`window.webAuthnEmulatorGet` を呼び出す
-- `navigator.credentials.create` の定義を上書きし、`window.webAuthnEmulatorCreate` を呼び出す
-- `PublicKeyCredential.signalUnknownCredential` の定義を追加し、`window.webAuthnEmulatorSignalUnknownCredential` を呼び出す
+Vitest/Jest などで WebAuthn API を差し替えたい場合は、`src/test-utils/unit-test.ts` の `createPasskeysEmulator` を使うと `PublicKeyCredential` / `navigator.credentials` を簡単にモックできます。
 
-これにより先ほどの `exposeFunction` で定義した `WebAuthnEmulator` のメソッドが、`navigator.credentials.get` および `navigator.credentials.create` 呼び出し時に実行されるようになります。これらの処理中にはテストコンテキストと Playwright のコンテキスト間の通信のためにデータのシリアライズおよびデシリアライズが行われるため、そのための処理も含まれています。
+```TypeScript
+import { createPasskeysEmulator } from "nid-webauthn-emulator";
+
+const { interface: methods, addPasskey } = createPasskeysEmulator({
+  origin: "http://localhost",
+  rpId: "localhost",
+  autofill: true, // false にすると isConditionalMediationAvailable が false を返す
+  // creationException / requestException を指定すると DOMException が発生する挙動を注入できます
+});
+
+params?.existingPasskeys?.forEach((passkey) => {
+  addPasskey(passkey); // テスト開始前に登録済みパスキーを追加
+});
+
+// 既存の実装を消し、エミュレータを差し込む
+const undefinedProperty = { value: undefined, configurable: true };
+Object.defineProperty(window, "PublicKeyCredential", undefinedProperty);
+Object.defineProperty(window.navigator, "credentials", undefinedProperty);
+
+vi.spyOn(window, "PublicKeyCredential", "get").mockReturnValue(methods.publicKeyCredentials);
+vi.spyOn(window.navigator, "credentials", "get").mockReturnValue(methods.credentialsContainer);
+```
 
 ## ライセンス
 
