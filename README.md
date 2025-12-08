@@ -210,6 +210,33 @@ await page.evaluate(BrowserInjection.HookWebAuthnApis);
 
 This ensures that the `WebAuthnEmulator` methods defined earlier with `exposeFunction` are executed when `navigator.credentials.get` and `navigator.credentials.create` are called. These processes include serialization and deserialization of data for communication between the test context and Playwright context.
 
+## Hooking WebAuthn APIs in Unit Tests
+
+If you want to swap out WebAuthn APIs in Vitest/Jest, you can mock `PublicKeyCredential` / `navigator.credentials` using `createPasskeysEmulator` from `src/test-utils/unit-test.ts`.
+
+```TypeScript
+import { createPasskeysEmulator } from "nid-webauthn-emulator";
+
+const { interface: methods, addPasskey } = createPasskeysEmulator({
+  origin: "http://localhost",
+  rpId: "localhost",
+  autofill: true, // returns false from isConditionalMediationAvailable when set to false
+  // specify creationException / requestException to inject a DOMException
+});
+
+params?.existingPasskeys?.forEach((passkey) => {
+  addPasskey(passkey); // add pre-registered passkeys before the test starts
+});
+
+// remove existing implementations and inject the emulator
+const undefinedProperty = { value: undefined, configurable: true };
+Object.defineProperty(window, "PublicKeyCredential", undefinedProperty);
+Object.defineProperty(window.navigator, "credentials", undefinedProperty);
+
+vi.spyOn(window, "PublicKeyCredential", "get").mockReturnValue(methods.publicKeyCredentials);
+vi.spyOn(window.navigator, "credentials", "get").mockReturnValue(methods.credentialsContainer);
+```
+
 ## License
 
 MIT License

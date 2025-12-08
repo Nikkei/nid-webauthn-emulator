@@ -13,6 +13,7 @@ export * from "./authenticator/ctap-model";
 export * from "./repository/credentials-file-repository";
 export * from "./repository/credentials-memory-repository";
 export * from "./repository/credentials-repository";
+export * from "./test-utils/unit-test";
 export * from "./webauthn/cose-key";
 export * from "./webauthn/webauthn-emulator";
 export * from "./webauthn/webauthn-model";
