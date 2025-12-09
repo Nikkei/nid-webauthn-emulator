@@ -208,7 +208,7 @@ Vitest/Jest などで WebAuthn API を差し替えたい場合は、`src/test-ut
 ```TypeScript
 import { createPasskeysEmulator } from "nid-webauthn-emulator";
 
-const { interface: methods, addPasskey } = createPasskeysEmulator({
+const { methods, addPasskey } = createPasskeysEmulator({
   origin: "http://localhost",
   rpId: "localhost",
   autofill: true, // false にすると isConditionalMediationAvailable が false を返す
@@ -220,12 +220,8 @@ params?.existingPasskeys?.forEach((passkey) => {
 });
 
 // 既存の実装を消し、エミュレータを差し込む
-const undefinedProperty = { value: undefined, configurable: true };
-Object.defineProperty(window, "PublicKeyCredential", undefinedProperty);
-Object.defineProperty(window.navigator, "credentials", undefinedProperty);
-
-vi.spyOn(window, "PublicKeyCredential", "get").mockReturnValue(methods.publicKeyCredentials);
-vi.spyOn(window.navigator, "credentials", "get").mockReturnValue(methods.credentialsContainer);
+vi.stubGlobal("PublicKeyCredential", methods.publicKeyCredentials);
+vi.stubGlobal("navigator", { credentials: methods.credentialsContainer });
 ```
 
 ## ライセンス
