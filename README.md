@@ -217,7 +217,7 @@ If you want to swap out WebAuthn APIs in Vitest/Jest, you can mock `PublicKeyCre
 ```TypeScript
 import { createPasskeysEmulator } from "nid-webauthn-emulator";
 
-const { interface: methods, addPasskey } = createPasskeysEmulator({
+const { methods, addPasskey } = createPasskeysEmulator({
   origin: "http://localhost",
   rpId: "localhost",
   autofill: true, // returns false from isConditionalMediationAvailable when set to false
@@ -229,12 +229,8 @@ params?.existingPasskeys?.forEach((passkey) => {
 });
 
 // remove existing implementations and inject the emulator
-const undefinedProperty = { value: undefined, configurable: true };
-Object.defineProperty(window, "PublicKeyCredential", undefinedProperty);
-Object.defineProperty(window.navigator, "credentials", undefinedProperty);
-
-vi.spyOn(window, "PublicKeyCredential", "get").mockReturnValue(methods.publicKeyCredentials);
-vi.spyOn(window.navigator, "credentials", "get").mockReturnValue(methods.credentialsContainer);
+vi.stubGlobal("PublicKeyCredential", methods.publicKeyCredentials);
+vi.stubGlobal("navigator", { credentials: methods.credentialsContainer });
 ```
 
 ## License
