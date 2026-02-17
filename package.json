@@ -20,7 +20,7 @@
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "devDependencies": {
-    "@biomejs/biome": "^2.3.14",
+    "@biomejs/biome": "^2.4.0",
     "@jest/globals": "^30.2.0",
     "@simplewebauthn/server": "^13.2.2",
     "@tsconfig/recommended": "^1.0.13",
