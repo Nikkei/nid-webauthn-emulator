@@ -1,6 +1,6 @@
 {
   "name": "nid-webauthn-emulator",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "keywords": [
     "test",
     "e2e",
