@@ -7,6 +7,16 @@
 このプロダクトは Node.js / TypeScript / pnpm / biome といった技術を使って開発されています。
 初めての方は、[README.md](README.md) をご覧ください。
 
+## 開発環境のセットアップ
+
+依存関係の導入は lockfile を固定したまま行ってください。
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+このリポジトリでは `pnpm-workspace.yaml` で依存関係の新規公開直後の導入を遅延させ、依存パッケージの install script を明示許可制にしています。サプライチェーン攻撃への耐性を下げるため、`--no-frozen-lockfile` や無差別な依存更新は避けてください。
+
 ## プルリクエストの作成方法
 
 本レポジトリを Fork しローカルにて修正を行った後、本リポジトリに向けてプルリクエストを作成してください。
