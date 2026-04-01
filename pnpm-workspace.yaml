@@ -1,0 +1,9 @@
+packages:
+  - .
+
+trustPolicy: no-downgrade
+minimumReleaseAge: 10080
+strictDepBuilds: true
+blockExoticSubdeps: true
+allowBuilds:
+  unrs-resolver: true
