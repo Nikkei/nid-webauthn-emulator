@@ -58,8 +58,21 @@ describe("CBOR encode/decode edge cases", () => {
     expect(Array.from(decoded.b)).toEqual([9, 8]);
   });
 
-  test("decodes tagged values and explicit integer widths", () => {
-    expect(EncodeUtils.decodeCbor<number>(new Uint8Array([0xc1, 0x01]))).toBe(1);
+  test("keeps non-exact integer object keys as text string map keys", () => {
+    const decoded = EncodeUtils.decodeCbor<Record<string | number, boolean>>(
+      EncodeUtils.encodeCbor({
+        "1": false,
+        "01": true,
+        "1abc": true,
+      }),
+    );
+
+    expect(decoded[1]).toBe(false);
+    expect(decoded["01"]).toBe(true);
+    expect(decoded["1abc"]).toBe(true);
+  });
+
+  test("decodes explicit integer widths", () => {
     expect(EncodeUtils.decodeCbor<number>(new Uint8Array([0x1a, 0x00, 0x01, 0x00, 0x00]))).toBe(0x1_0000);
     expect(EncodeUtils.decodeCbor<number>(new Uint8Array([0x1b, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]))).toBe(
       0x1_0000_0000,
@@ -76,6 +89,7 @@ describe("CBOR encode/decode edge cases", () => {
     expect(() => EncodeUtils.decodeCbor(new Uint8Array([0x42, 0x01]))).toThrow("Insufficient data");
     expect(() => EncodeUtils.decodeCbor(new Uint8Array([0x5f]))).toThrow("Unsupported indefinite-length CBOR data");
     expect(() => EncodeUtils.decodeCbor(new Uint8Array([0x01, 0x02]))).toThrow("Unexpected trailing CBOR data");
+    expect(() => EncodeUtils.decodeCbor(new Uint8Array([0xc1, 0x01]))).toThrow("Unsupported CBOR tagged value");
     expect(() => EncodeUtils.decodeCbor(new Uint8Array([0xf8]))).toThrow("Unsupported CBOR simple value: 24");
     expect(() => EncodeUtils.decodeCbor(new Uint8Array([0xa1, 0x41, 0x01, 0x01]))).toThrow(
       "Unsupported CBOR map key type",

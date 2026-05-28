@@ -29,6 +29,11 @@ function appendCborByteString(out: number[], data: Uint8Array): void {
   out.push(...data);
 }
 
+function objectKeyToCborMapKey(key: string): string | number {
+  const numberKey = Number(key);
+  return Number.isSafeInteger(numberKey) && String(numberKey) === key ? numberKey : key;
+}
+
 function appendCborValue(out: number[], value: unknown): void {
   if (value instanceof Uint8Array) {
     appendCborByteString(out, value);
@@ -77,8 +82,7 @@ function appendCborValue(out: number[], value: unknown): void {
   const entries = Object.entries(value);
   appendCborTypeAndLength(out, 5, entries.length);
   for (const [k, v] of entries) {
-    const ki = Number.parseInt(k, 10);
-    appendCborValue(out, Number.isNaN(ki) ? k : ki);
+    appendCborValue(out, objectKeyToCborMapKey(k));
     appendCborValue(out, v);
   }
 }
@@ -122,8 +126,7 @@ class CborReader {
       case 5:
         return this.readMap(this.readLength(additionalInfo));
       case 6:
-        this.readLength(additionalInfo);
-        return this.readValue();
+        throw new Error("Unsupported CBOR tagged value");
       case 7:
         return this.readSimpleValue(additionalInfo);
     }
