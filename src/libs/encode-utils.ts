@@ -1,4 +1,4 @@
-import cbor from "cbor";
+import { decodeCbor, encodeCbor } from "./cbor";
 
 function encodeBase64Url(data: BufferSource): string {
   const buffer = bufferSourceToUint8Array(data);
@@ -27,65 +27,6 @@ function bufferSourceToUint8Array(data: BufferSource): Uint8Array<ArrayBuffer> {
 
 function strToUint8Array(data: string): Uint8Array<ArrayBuffer> {
   return new Uint8Array(data.split("").map((c) => c.charCodeAt(0)));
-}
-
-function encodeCbor(data: object): Uint8Array<ArrayBuffer> {
-  function encoder(value: unknown): unknown {
-    if (value instanceof Buffer) {
-      return value;
-    }
-    if (value instanceof Uint8Array) {
-      return Buffer.from(value);
-    }
-    if (value instanceof ArrayBuffer) {
-      return Buffer.from(value);
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => encoder(v));
-    }
-    if (typeof value === "object" && value !== null) {
-      const encodedData = new Map<unknown, unknown>();
-      for (const [k, v] of Object.entries(value)) {
-        const ki = Number.parseInt(k, 10);
-        if (Number.isNaN(ki)) {
-          encodedData.set(k, encoder(v));
-        } else {
-          encodedData.set(ki, encoder(v));
-        }
-      }
-      return encodedData;
-    }
-    return value;
-  }
-  return new Uint8Array(cbor.encode(encoder(data)));
-}
-
-function decodeCbor<T>(data: Uint8Array<ArrayBuffer>): T {
-  const canonicalData = cbor.decode(data) as Map<unknown, unknown>;
-  function decoder(value: unknown): unknown {
-    if (value instanceof Buffer) {
-      return new Uint8Array(value);
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => decoder(v));
-    }
-    if (value instanceof Map) {
-      const decodedData = {};
-      for (const [k, v] of value) {
-        Object.assign(decodedData, { [k]: decoder(v) });
-      }
-      return decodedData;
-    }
-    if (typeof value === "object" && value !== null) {
-      const decodedData = {};
-      for (const [k, v] of Object.entries(value)) {
-        Object.assign(decodedData, { [k]: decoder(v) });
-      }
-      return decodedData;
-    }
-    return value;
-  }
-  return decoder(canonicalData) as T;
 }
 
 const EncodeUtils = {
