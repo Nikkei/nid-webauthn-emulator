@@ -212,7 +212,7 @@ This ensures that the `WebAuthnEmulator` methods defined earlier with `exposeFun
 
 ## Hooking WebAuthn APIs in Unit Tests
 
-If you want to swap out WebAuthn APIs in Vitest/Jest, you can mock `PublicKeyCredential` / `navigator.credentials` using `createPasskeysEmulator` from `src/test-utils/unit-test.ts`.
+If you want to swap out WebAuthn APIs in unit tests, you can mock `PublicKeyCredential` / `navigator.credentials` using `createPasskeysEmulator` from `src/test-utils/unit-test.ts`.
 
 ```TypeScript
 import { createPasskeysEmulator } from "nid-webauthn-emulator";

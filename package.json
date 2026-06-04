@@ -18,19 +18,16 @@
   },
   "scripts": {
     "check": "biome check .",
-    "test": "jest",
+    "test": "node --test --test-concurrency=4 --require ts-node/register \"spec/**/*.spec.ts\"",
     "build": "tsc"
   },
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
-    "@jest/globals": "30.4.1",
     "@simplewebauthn/server": "13.3.0",
     "@tsconfig/recommended": "1.0.13",
     "@types/node": "25.9.1",
-    "jest": "30.4.2",
-    "ts-jest": "29.4.11",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
   },

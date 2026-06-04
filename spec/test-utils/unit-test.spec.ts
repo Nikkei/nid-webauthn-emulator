@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { after, afterEach, before, beforeEach, describe, test } from "node:test";
 import { AuthenticatorEmulator } from "../../src/authenticator/authenticator-emulator";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { createPasskeysEmulator } from "../../src/test-utils/unit-test";
@@ -19,7 +20,7 @@ const originalLocation = globalScope.location;
 const originalBtoa = globalScope.btoa;
 const originalAtob = globalScope.atob;
 
-beforeAll(() => {
+before(() => {
   if (!globalScope.btoa) {
     globalScope.btoa = (data: string) => Buffer.from(data, "binary").toString("base64");
   }
@@ -44,7 +45,7 @@ afterEach(() => {
   clearDefaultRepository();
 });
 
-afterAll(() => {
+after(() => {
   globalScope.location = originalLocation;
   globalScope.btoa = originalBtoa;
   globalScope.atob = originalAtob;
@@ -54,11 +55,11 @@ describe("createPasskeysEmulator", () => {
   test("exposes default passkeys-like interfaces", async () => {
     const emulator = createPasskeysEmulator();
 
-    expect(await emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.()).toBe(true);
-    expect(await emulator.methods.publicKeyCredentials.getClientCapabilities()).toEqual({ conditionalGet: true });
-    expect(await emulator.methods.publicKeyCredentials.isUserVerifyingPlatformAuthenticatorAvailable()).toBe(true);
-    expect(emulator.methods.publicKeyCredentials.parseCreationOptionsFromJSON).toBe(parseCreationOptionsFromJSON);
-    expect(emulator.methods.publicKeyCredentials.parseRequestOptionsFromJSON).toBe(parseRequestOptionsFromJSON);
+    assert.equal(await emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.(), true);
+    assert.deepEqual(await emulator.methods.publicKeyCredentials.getClientCapabilities(), { conditionalGet: true });
+    assert.equal(await emulator.methods.publicKeyCredentials.isUserVerifyingPlatformAuthenticatorAvailable(), true);
+    assert.equal(emulator.methods.publicKeyCredentials.parseCreationOptionsFromJSON, parseCreationOptionsFromJSON);
+    assert.equal(emulator.methods.publicKeyCredentials.parseRequestOptionsFromJSON, parseRequestOptionsFromJSON);
   });
 
   test("addPasskey stores credentials for custom rpId and allows authentication", async () => {
@@ -69,8 +70,8 @@ describe("createPasskeysEmulator", () => {
 
     const repository = emulator.instance.authenticator.params.credentialsRepository;
     const credentials = repository?.loadCredentials() ?? [];
-    expect(credentials).toHaveLength(1);
-    expect(credentials[0].publicKeyCredentialSource.rpId.value).toBe("example.com");
+    assert.equal(credentials.length, 1);
+    assert.equal(credentials[0].publicKeyCredentialSource.rpId.value, "example.com");
 
     const credentialId = EncodeUtils.encodeBase64Url(credentials[0].publicKeyCredentialSource.id);
     const requestOptions = emulator.methods.publicKeyCredentials.parseRequestOptionsFromJSON({
@@ -83,9 +84,10 @@ describe("createPasskeysEmulator", () => {
       publicKey: requestOptions,
     })) as RequestPublicKeyCredential;
 
-    expect(assertion.id).toBe(credentialId);
+    assert.equal(assertion.id, credentialId);
     const userHandle = assertion.response.userHandle;
-    expect(EncodeUtils.encodeBase64Url(new Uint8Array(userHandle ?? new ArrayBuffer(0)))).toBe(
+    assert.equal(
+      EncodeUtils.encodeBase64Url(new Uint8Array(userHandle ?? new ArrayBuffer(0))),
       EncodeUtils.encodeBase64Url(Buffer.from("user-123")),
     );
   });
@@ -106,8 +108,8 @@ describe("createPasskeysEmulator", () => {
     });
     const createCall = emulator.methods.credentialsContainer.create({ publicKey: creationOptions });
 
-    await expect(createCall).rejects.toThrow(DOMException as unknown as ErrorConstructor);
-    await expect(createCall).rejects.toMatchObject({ name: "AbortError" });
+    await assert.rejects(createCall, DOMException as unknown as ErrorConstructor);
+    await assert.rejects(createCall, { name: "AbortError" });
   });
 
   test("requestException is thrown when fetching assertions", async () => {
@@ -118,7 +120,7 @@ describe("createPasskeysEmulator", () => {
 
     const repository = emulator.instance.authenticator.params.credentialsRepository;
     const credentials = repository?.loadCredentials() ?? [];
-    expect(credentials).toHaveLength(1);
+    assert.equal(credentials.length, 1);
     const credentialId = EncodeUtils.encodeBase64Url(credentials[0].publicKeyCredentialSource.id);
 
     const requestOptions = emulator.methods.publicKeyCredentials.parseRequestOptionsFromJSON({
@@ -129,20 +131,20 @@ describe("createPasskeysEmulator", () => {
     const parsedId = EncodeUtils.encodeBase64Url(
       new Uint8Array((requestOptions.allowCredentials?.[0].id as ArrayBuffer) ?? new ArrayBuffer(0)),
     );
-    expect(parsedId).toBe(credentialId);
+    assert.equal(parsedId, credentialId);
 
     try {
       await emulator.methods.credentialsContainer.get({ publicKey: requestOptions });
       throw new Error("Expected DOMException");
     } catch (error) {
-      expect(error).toBeInstanceOf(DOMException);
-      expect((error as DOMException).name).toBe("InvalidStateError");
+      assert.ok(error instanceof DOMException);
+      assert.equal((error as DOMException).name, "InvalidStateError");
     }
   });
 
   test("disables conditional mediation when autofill flag is false", async () => {
     const emulator = createPasskeysEmulator({ autofill: false });
 
-    await expect(emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.()).resolves.toBe(false);
+    assert.equal(await emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.(), false);
   });
 });

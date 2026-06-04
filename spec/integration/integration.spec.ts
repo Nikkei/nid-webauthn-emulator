@@ -1,9 +1,9 @@
-import { describe, test } from "@jest/globals";
+import { describe, test } from "node:test";
 import WebAuthnEmulator from "../../src/index";
 import { WebAuthnIO } from "./webauthn-io";
 
 describe("Passkeys Integration Test by webauthn.io", () => {
-  test.skip("Registration Ceremony and Authentication Ceremony", async () => {
+  test.skip("Registration Ceremony and Authentication Ceremony", { timeout: 60_000 }, async () => {
     const origin = "https://webauthn.io";
     const emulator = new WebAuthnEmulator();
     const webauthnIO = await WebAuthnIO.create();
@@ -27,5 +27,5 @@ describe("Passkeys Integration Test by webauthn.io", () => {
     console.log("Authentication credential", requestCredential);
     await webauthnIO.getAuthenticationVerification(requestCredential);
     console.log("Authentication verification completed");
-  }, 60000);
+  });
 });

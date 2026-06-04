@@ -203,7 +203,7 @@ await page.evaluate(BrowserInjection.HookWebAuthnApis);
 
 ## ユニットテストでの WebAuthn API フック
 
-Vitest/Jest などで WebAuthn API を差し替えたい場合は、`src/test-utils/unit-test.ts` の `createPasskeysEmulator` を使うと `PublicKeyCredential` / `navigator.credentials` を簡単にモックできます。
+ユニットテストで WebAuthn API を差し替えたい場合は、`src/test-utils/unit-test.ts` の `createPasskeysEmulator` を使うと `PublicKeyCredential` / `navigator.credentials` を簡単にモックできます。
 
 ```TypeScript
 import { createPasskeysEmulator } from "nid-webauthn-emulator";

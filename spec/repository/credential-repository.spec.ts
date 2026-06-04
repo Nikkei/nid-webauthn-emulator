@@ -1,6 +1,7 @@
+import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import path from "node:path";
-import { describe, expect, test } from "@jest/globals";
+import { describe, test } from "node:test";
 import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import {
@@ -38,7 +39,7 @@ describe("Credential Repository Test", () => {
     const serialization = serializeCredential(deserialized);
     const reDeserialized = deserializeCredential(serialization);
 
-    expect(reDeserialized).toEqual(deserialized);
+    assert.deepEqual(reDeserialized, deserialized);
   });
 
   test("Memory Repository Test", async () => {
@@ -47,12 +48,12 @@ describe("Credential Repository Test", () => {
     repository.saveCredential(deserialized);
     const loaded = repository.loadCredentials();
 
-    expect(loaded[0]).toEqual(deserialized);
-    expect(loaded.length).toEqual(1);
+    assert.deepEqual(loaded[0], deserialized);
+    assert.deepEqual(loaded.length, 1);
 
     repository.deleteCredential(deserialized);
     const reLoaded = repository.loadCredentials();
-    expect(reLoaded.length).toEqual(0);
+    assert.deepEqual(reLoaded.length, 0);
   });
 
   test("File Repository Test", async () => {
@@ -67,8 +68,8 @@ describe("Credential Repository Test", () => {
       await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
 
       const loaded = repository.loadCredentials();
-      expect(loaded[0]).toEqual(deserialized);
-      expect(loaded.length).toEqual(1);
+      assert.deepEqual(loaded[0], deserialized);
+      assert.deepEqual(loaded.length, 1);
 
       repository.deleteCredential(deserialized);
       await new Promise((resolve) => setTimeout(resolve, FILE_IO_WAIT));
@@ -77,7 +78,7 @@ describe("Credential Repository Test", () => {
       fs.writeFileSync(path.join(TEST_CREDENTIALS_DIR, "dummy"), "dummy");
 
       const reLoaded = repository.loadCredentials();
-      expect(reLoaded.length).toEqual(0);
+      assert.deepEqual(reLoaded.length, 0);
     } finally {
       fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
     }

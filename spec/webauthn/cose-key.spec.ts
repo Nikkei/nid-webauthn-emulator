@@ -1,5 +1,6 @@
+import assert from "node:assert/strict";
 import * as crypto from "node:crypto";
-import { describe, expect, test } from "@jest/globals";
+import { describe, test } from "node:test";
 import { CoseKey } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 
@@ -11,9 +12,9 @@ describe("COSEKey Tests", () => {
     const coseKey3 = CoseKey.fromBytes(coseKey1.toBytes());
     const coseKey4 = CoseKey.fromJwk(coseKey1.toJwk());
 
-    expect(coseKey1.equals(coseKey2)).toBeTruthy();
-    expect(coseKey1.equals(coseKey3)).toBeTruthy();
-    expect(coseKey1.equals(coseKey4)).toBeTruthy();
+    assert.ok(coseKey1.equals(coseKey2));
+    assert.ok(coseKey1.equals(coseKey3));
+    assert.ok(coseKey1.equals(coseKey4));
   });
 
   test("P256 Key test", () => {
@@ -23,9 +24,9 @@ describe("COSEKey Tests", () => {
     const coseKey3 = CoseKey.fromBytes(coseKey1.toBytes());
     const coseKey4 = CoseKey.fromJwk(coseKey1.toJwk());
 
-    expect(coseKey1.equals(coseKey2)).toBeTruthy();
-    expect(coseKey1.equals(coseKey3)).toBeTruthy();
-    expect(coseKey1.equals(coseKey4)).toBeTruthy();
+    assert.ok(coseKey1.equals(coseKey2));
+    assert.ok(coseKey1.equals(coseKey3));
+    assert.ok(coseKey1.equals(coseKey4));
   });
 
   test("Ed25519 Key test", () => {
@@ -35,9 +36,9 @@ describe("COSEKey Tests", () => {
     const coseKey3 = CoseKey.fromBytes(coseKey1.toBytes());
     const coseKey4 = CoseKey.fromJwk(coseKey1.toJwk());
 
-    expect(coseKey1.equals(coseKey2)).toBeTruthy();
-    expect(coseKey1.equals(coseKey3)).toBeTruthy();
-    expect(coseKey1.equals(coseKey4)).toBeTruthy();
+    assert.ok(coseKey1.equals(coseKey2));
+    assert.ok(coseKey1.equals(coseKey3));
+    assert.ok(coseKey1.equals(coseKey4));
   });
 
   test("Unsupported key type test", () => {
@@ -46,9 +47,9 @@ describe("COSEKey Tests", () => {
       ...CoseKey.fromKeyObject(keys.publicKey).toJwk(),
       kty: "unsupported",
     };
-    expect(() => CoseKey.fromJwk(unsupportedJwk)).toThrow("Not supported key type");
+    assert.throws(() => CoseKey.fromJwk(unsupportedJwk), { message: "Not supported key type" });
 
     const unsupportedBytes = EncodeUtils.encodeCbor({ 1: 123, 3: 456 });
-    expect(() => CoseKey.fromBytes(unsupportedBytes)).toThrow("Not supported key type");
+    assert.throws(() => CoseKey.fromBytes(unsupportedBytes), { message: "Not supported key type" });
   });
 });

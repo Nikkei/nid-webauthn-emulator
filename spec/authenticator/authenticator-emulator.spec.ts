@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { beforeEach, describe, test } from "node:test";
 import { AuthenticatorEmulator } from "../../src";
 import {
   AuthenticationEmulatorError,
@@ -21,9 +22,12 @@ describe("Authenticator Emulator Exceptional Test", () => {
       command: CTAP_COMMAND.authenticatorReset,
     };
     const authenticator = new AuthenticatorEmulator();
-    expect(() => {
-      authenticator.command(testRequest);
-    }).toThrow("CTAP error: CTAP1_ERR_INVALID_COMMAND (1)");
+    assert.throws(
+      () => {
+        authenticator.command(testRequest);
+      },
+      { message: "CTAP error: CTAP1_ERR_INVALID_COMMAND (1)" },
+    );
   });
 });
 
@@ -95,7 +99,7 @@ describe("Authenticator Credential Management Tests", () => {
       const response = authenticator.authenticatorCredentialManagement(request);
 
       // Verify the response
-      expect(response.totalCredentials).toBe(2); // We created 2 credentials for rpId1
+      assert.equal(response.totalCredentials, 2); // We created 2 credentials for rpId1
     });
 
     test("should throw an error if rpId is not provided", () => {
@@ -105,9 +109,9 @@ describe("Authenticator Credential Management Tests", () => {
       };
 
       // Execute the command and expect an error
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(request);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
     });
 
     test("should return 0 credentials for an RP with no credentials", () => {
@@ -123,7 +127,7 @@ describe("Authenticator Credential Management Tests", () => {
       const response = authenticator.authenticatorCredentialManagement(request);
 
       // Verify the response
-      expect(response.totalCredentials).toBe(0);
+      assert.equal(response.totalCredentials, 0);
     });
   });
 
@@ -146,27 +150,28 @@ describe("Authenticator Credential Management Tests", () => {
 
       // Get first credential
       const response1 = authenticator.authenticatorCredentialManagement(getNextRequest);
-      expect(response1.user).toBeDefined();
-      expect(response1.credentialID).toBeDefined();
-      expect(response1.publicKey).toBeDefined();
+      assert.notEqual(response1.user, undefined);
+      assert.notEqual(response1.credentialID, undefined);
+      assert.notEqual(response1.publicKey, undefined);
 
       // Get second credential
       const response2 = authenticator.authenticatorCredentialManagement(getNextRequest);
-      expect(response2.user).toBeDefined();
-      expect(response2.credentialID).toBeDefined();
-      expect(response2.publicKey).toBeDefined();
+      assert.notEqual(response2.user, undefined);
+      assert.notEqual(response2.credentialID, undefined);
+      assert.notEqual(response2.publicKey, undefined);
 
       // Verify we got different credentials
       if (response1.credentialID && response2.credentialID) {
-        expect(EncodeUtils.encodeBase64Url(response1.credentialID)).not.toBe(
+        assert.notEqual(
+          EncodeUtils.encodeBase64Url(response1.credentialID),
           EncodeUtils.encodeBase64Url(response2.credentialID),
         );
       }
 
       // Verify we can't get more credentials
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(getNextRequest);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
     });
 
     test("should throw an error if called without calling enumerateCredentialsBegin first", () => {
@@ -174,9 +179,9 @@ describe("Authenticator Credential Management Tests", () => {
         subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsGetNextCredential,
       };
 
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(getNextRequest);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
     });
   });
 
@@ -223,8 +228,8 @@ describe("Authenticator Credential Management Tests", () => {
         nextResponse.user &&
         EncodeUtils.encodeBase64Url(nextResponse.user.id) === EncodeUtils.encodeBase64Url(user1.id)
       ) {
-        expect(nextResponse.user.name).toBe(updatedUser.name);
-        expect(nextResponse.user.displayName).toBe(updatedUser.displayName);
+        assert.equal(nextResponse.user.name, updatedUser.name);
+        assert.equal(nextResponse.user.displayName, updatedUser.displayName);
       }
     });
 
@@ -236,9 +241,9 @@ describe("Authenticator Credential Management Tests", () => {
         },
       };
 
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(request);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
     });
 
     test("should throw an error if user is not provided", () => {
@@ -249,9 +254,9 @@ describe("Authenticator Credential Management Tests", () => {
         },
       };
 
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(request);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER));
     });
 
     test("should throw an error if no credentials exist for the user", () => {
@@ -269,9 +274,9 @@ describe("Authenticator Credential Management Tests", () => {
         },
       };
 
-      expect(() => {
+      assert.throws(() => {
         authenticator.authenticatorCredentialManagement(request);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS));
     });
   });
 
@@ -291,9 +296,9 @@ describe("Authenticator Credential Management Tests", () => {
       };
 
       // Execute the command and expect an error
-      expect(() => {
+      assert.throws(() => {
         statelessAuthenticator.authenticatorCredentialManagement(request);
-      }).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+      }, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
   });
 
@@ -302,7 +307,8 @@ describe("Authenticator Credential Management Tests", () => {
       const authenticator = new AuthenticatorEmulator();
       // Build a CTAP request with an unknown subCommand to hit default branch
       const data = EncodeUtils.encodeCbor({ "1": -1 });
-      expect(() => authenticator.command({ command: CTAP_COMMAND.authenticatorCredentialManagement, data })).toThrow(
+      assert.throws(
+        () => authenticator.command({ command: CTAP_COMMAND.authenticatorCredentialManagement, data }),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_COMMAND),
       );
     });
@@ -313,7 +319,8 @@ describe("Authenticator Credential Management Tests", () => {
         subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
         subCommandParams: { rpId: "example.com" },
       });
-      expect(() => authenticator.command(req)).toThrow(
+      assert.throws(
+        () => authenticator.command(req),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
       );
     });
@@ -324,7 +331,8 @@ describe("Authenticator Credential Management Tests", () => {
         subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
         subCommandParams: { rpId: "example.com", user: { id: new Uint8Array([1]), name: "n", displayName: "d" } },
       });
-      expect(() => authenticator.command(req)).toThrow(
+      assert.throws(
+        () => authenticator.command(req),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
       );
     });
@@ -332,7 +340,8 @@ describe("Authenticator Credential Management Tests", () => {
     test("deleteCredential without repository throws not allowed", () => {
       const authenticator = new AuthenticatorEmulator({ stateless: true });
       const req = packCredentialManagementRequest({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
-      expect(() => authenticator.command(req)).toThrow(
+      assert.throws(
+        () => authenticator.command(req),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED),
       );
     });
@@ -340,7 +349,8 @@ describe("Authenticator Credential Management Tests", () => {
     test("deleteCredential without credentialId throws invalid parameter", () => {
       const authenticator = new AuthenticatorEmulator();
       const req = packCredentialManagementRequest({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
-      expect(() => authenticator.command(req)).toThrow(
+      assert.throws(
+        () => authenticator.command(req),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER),
       );
     });
@@ -352,7 +362,8 @@ describe("Authenticator Credential Management Tests", () => {
         subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential,
         subCommandParams: { credentialId },
       });
-      expect(() => authenticator.command(req)).toThrow(
+      assert.throws(
+        () => authenticator.command(req),
         new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NO_CREDENTIALS),
       );
     });
@@ -372,7 +383,7 @@ describe("Authenticator Credential Management Tests", () => {
           subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin,
           subCommandParams: { rpId: "x" },
         });
-      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+      assert.throws(call, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
 
     test("private updateUserInformation guard throws not allowed when repository missing", () => {
@@ -390,7 +401,7 @@ describe("Authenticator Credential Management Tests", () => {
           subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.updateUserInformation,
           subCommandParams: { rpId: "x", user: { id: new Uint8Array([1]), name: "n", displayName: "d" } },
         });
-      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+      assert.throws(call, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
 
     test("private deleteCredential guard throws not allowed when repository missing", () => {
@@ -404,7 +415,7 @@ describe("Authenticator Credential Management Tests", () => {
         }
       ).authenticatorDeleteCredential.bind(authenticator);
       const call = () => target({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
-      expect(call).toThrow(new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
+      assert.throws(call, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
   });
 });
