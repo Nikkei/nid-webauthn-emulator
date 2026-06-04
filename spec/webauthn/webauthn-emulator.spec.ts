@@ -1,4 +1,5 @@
-import { describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 import WebAuthnEmulator, {
   AuthenticationEmulatorError,
   AuthenticatorEmulator,
@@ -33,8 +34,8 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
 
     // Last Credentials only
     const credentialRecords = emulator.authenticator.params.credentialsRepository?.loadCredentials() ?? [];
-    expect(credentialRecords.length).toBe(1);
-    expect(EncodeUtils.encodeBase64Url(credentialRecords[0].publicKeyCredentialSource.id)).toBe(credential2.id);
+    assert.equal(credentialRecords.length, 1);
+    assert.equal(EncodeUtils.encodeBase64Url(credentialRecords[0].publicKeyCredentialSource.id), credential2.id);
   });
 
   test("Create Passkeys with an illegal origin _ failed to response", async () => {
@@ -44,20 +45,20 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
 
     const options = await testServer.getRegistrationOptions(user);
     const call = () => emulator.createJSON(illegalOrigin, options);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("SecurityError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "SecurityError");
     }
   });
 
   test("Create Passkeys with no public key credential parameters _ failed to response", async () => {
     const emulator = new WebAuthnEmulator();
     const call = () => emulator.create(TEST_RP_ORIGIN, {});
-    expect(call).toThrow(TypeError);
+    assert.throws(call, TypeError);
   });
 
   test("Found in the exclude List _ CTAP Error", async () => {
@@ -68,13 +69,13 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     await testServer.getRegistrationVerification(user, credential);
     const options2 = await testServer.getRegistrationOptions(user);
     const call = () => emulator.createJSON(TEST_RP_ORIGIN, options2);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 
@@ -84,13 +85,13 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const options = await testServer.getRegistrationOptions(user);
     const illegalOptions = { ...options, pubKeyCredParams: [{ type: "public-key", alg: 99 } as const] };
     const call = () => emulator.createJSON(TEST_RP_ORIGIN, illegalOptions);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotSupportedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotSupportedError");
     }
   });
 
@@ -102,13 +103,13 @@ describe("WebAuthnEmulator Registration Passkeys Test", () => {
     const testServer = new WebAuthnTestServer();
     const options = await testServer.getRegistrationOptions(user);
     const call = () => emulator.createJSON(TEST_RP_ORIGIN, options);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 
@@ -180,12 +181,12 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     const credential1 = emulator.getJSON(TEST_RP_ORIGIN, options1);
 
     const authData = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential1.response.authenticatorData));
-    expect(authData.signCount).toBe(13);
+    assert.equal(authData.signCount, 13);
 
     const options2 = await testServer.getAuthenticationOptions();
     const credential2 = emulator.getJSON(TEST_RP_ORIGIN, options2);
     const authData2 = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential2.response.authenticatorData));
-    expect(authData2.signCount).toBe(26);
+    assert.equal(authData2.signCount, 26);
   });
 
   test("Authenticate Passkeys with an illegal origin _ failed to response", async () => {
@@ -193,20 +194,20 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     const illegalOrigin = `${TEST_RP_ORIGIN}_illegal`;
     const options = await testServer.getAuthenticationOptions();
     const call = () => emulator.getJSON(illegalOrigin, options);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("SecurityError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "SecurityError");
     }
   });
 
   test("Request Passkeys with no public key credential parameters _ failed to response", async () => {
     const emulator = new WebAuthnEmulator();
     const call = () => emulator.get(TEST_RP_ORIGIN, {} as CredentialRequestOptions);
-    expect(call).toThrow(TypeError);
+    assert.throws(call, TypeError);
   });
 
   test("Not found in allow list _ CTAP Error", async () => {
@@ -217,13 +218,13 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
         ...options,
         allowCredentials: [{ id: "AAAAAA", type: "public-key" }],
       });
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 
@@ -234,13 +235,13 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
     const [emulator, testServer] = await createCredential(authenticator);
     const options = await testServer.getAuthenticationOptions();
     const call = () => emulator.getJSON(TEST_RP_ORIGIN, options);
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 
@@ -265,8 +266,8 @@ describe("WebAuthnEmulator Authentication Passkeys Test", () => {
 
     const credentialRecords = emulator.authenticator.params.credentialsRepository?.loadCredentials() ?? [];
     const authData = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(credential.response.authenticatorData));
-    expect(credentialRecords.length).toBe(0);
-    expect(authData.signCount).toBe(0);
+    assert.equal(credentialRecords.length, 0);
+    assert.equal(authData.signCount, 0);
   });
 });
 
@@ -274,7 +275,7 @@ describe("WebAuthnEmulator getAuthenticatorInfo Test", () => {
   test("Get Authenticator Information _ OK", () => {
     const emulator = new WebAuthnEmulator();
     const info = emulator.getAuthenticatorInfo();
-    expect(info).toEqual({
+    assert.deepEqual(info, {
       version: "FIDO_2_0",
       aaguid: "TklELUFVVEgtMzE0MTU5Mg",
       options: { rk: true, uv: true },
@@ -300,7 +301,7 @@ describe("WebAuthnEmulator signalUnknownCredential Test", () => {
 
     // Verify the credential exists
     const credentialsBefore = repository.loadCredentials();
-    expect(credentialsBefore.length).toBe(1);
+    assert.equal(credentialsBefore.length, 1);
 
     // Signal unknown credential
     emulator.signalUnknownCredential({
@@ -310,7 +311,7 @@ describe("WebAuthnEmulator signalUnknownCredential Test", () => {
 
     // Verify the credential was deleted
     const credentialsAfter = repository.loadCredentials();
-    expect(credentialsAfter.length).toBe(0);
+    assert.equal(credentialsAfter.length, 0);
   });
 });
 
@@ -340,7 +341,7 @@ describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
 
     // Verify all credentials exist
     const credentialsBefore = repository.loadCredentials();
-    expect(credentialsBefore.length).toBe(2);
+    assert.equal(credentialsBefore.length, 2);
 
     // Get the user1 credentials
     const user1Credentials = credentialsBefore.filter((cred) => cred.user.name === user.username);
@@ -362,18 +363,18 @@ describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
 
     // Verify that one credential was deleted
     const credentialsAfter = repository.loadCredentials();
-    expect(credentialsAfter.length).toBe(1);
+    assert.equal(credentialsAfter.length, 1);
 
     // Check that credential1 and credential3 still exist
     const remainingIds = credentialsAfter.map((cred) => EncodeUtils.encodeBase64Url(cred.publicKeyCredentialSource.id));
-    expect(remainingIds).toContain(credential1.id);
-    expect(remainingIds).not.toContain(credential2.id);
+    assert.ok(remainingIds.includes(credential1.id));
+    assert.ok(!remainingIds.includes(credential2.id));
 
     // Verify one credential was deleted
-    expect(remainingIds.length).toBe(1);
-    expect(allCredentialIds.length).toBe(2);
+    assert.equal(remainingIds.length, 1);
+    assert.equal(allCredentialIds.length, 2);
     const deletedIds = allCredentialIds.filter((id) => !remainingIds.includes(id));
-    expect(deletedIds.length).toBe(1);
+    assert.equal(deletedIds.length, 1);
   });
 
   test("Signal All Accepted Credentials with empty list _ Delete all user credentials", async () => {
@@ -395,7 +396,7 @@ describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
 
     // Verify credentials exist
     const credentialsBefore = repository.loadCredentials();
-    expect(credentialsBefore.length).toBe(1);
+    assert.equal(credentialsBefore.length, 1);
 
     // Get the actual user ID from the credential
     const actualUserId = EncodeUtils.encodeBase64Url(credentialsBefore[0].user.id);
@@ -412,7 +413,7 @@ describe("WebAuthnEmulator signalAllAcceptedCredentials Test", () => {
       .loadCredentials()
       .filter((cred) => EncodeUtils.encodeBase64Url(cred.user.id) === actualUserId);
 
-    expect(userCredentialsAfter.length).toBe(0);
+    assert.equal(userCredentialsAfter.length, 0);
   });
 });
 
@@ -436,19 +437,19 @@ describe("WebAuthnEmulator relatedOrigins Test", () => {
 
     // Standard RP ID validation only
     const invalidCall = () => emulator.getJSON(testServer.origin, authOptions);
-    expect(invalidCall).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(invalidCall, DOMException as unknown as ErrorConstructor);
     try {
       invalidCall();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("SecurityError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "SecurityError");
     }
 
     // Related origins validation
     const authResponse = emulator.getJSON(testServer.origin, authOptions, relatedOrigins);
-    expect(authResponse).toBeDefined();
-    expect(authResponse.id).toBe(credential.id);
+    assert.notEqual(authResponse, undefined);
+    assert.equal(authResponse.id, credential.id);
   });
 });
 
@@ -472,8 +473,8 @@ describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
 
     // Verify the credential exists with original user details
     const credentialsBefore = repository.loadCredentials();
-    expect(credentialsBefore.length).toBe(1);
-    expect(credentialsBefore[0].user.name).toBe(user.username);
+    assert.equal(credentialsBefore.length, 1);
+    assert.equal(credentialsBefore[0].user.name, user.username);
     // Note: We don't check displayName as it's not consistently set by the test server
 
     // Get the actual user ID from the credential
@@ -492,13 +493,13 @@ describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
 
     // Verify the user details were updated
     const credentialsAfter = repository.loadCredentials();
-    expect(credentialsAfter.length).toBe(1);
-    expect(credentialsAfter[0].user.name).toBe(updatedName);
-    expect(credentialsAfter[0].user.displayName).toBe(updatedDisplayName);
+    assert.equal(credentialsAfter.length, 1);
+    assert.equal(credentialsAfter[0].user.name, updatedName);
+    assert.equal(credentialsAfter[0].user.displayName, updatedDisplayName);
 
     // Verify the credential ID and user ID remain unchanged
-    expect(EncodeUtils.encodeBase64Url(credentialsAfter[0].publicKeyCredentialSource.id)).toBe(credential.id);
-    expect(EncodeUtils.encodeBase64Url(credentialsAfter[0].user.id)).toBe(actualUserId);
+    assert.equal(EncodeUtils.encodeBase64Url(credentialsAfter[0].publicKeyCredentialSource.id), credential.id);
+    assert.equal(EncodeUtils.encodeBase64Url(credentialsAfter[0].user.id), actualUserId);
   });
 
   test("Signal Current User Details with non-existent user _ Error", async () => {
@@ -512,14 +513,14 @@ describe("WebAuthnEmulator signalCurrentUserDetails Test", () => {
     // Try to update non-existent user
     const nonExistentUserId = "non-existent-user-id";
 
-    expect(() => {
+    assert.throws(() => {
       emulator.signalCurrentUserDetails({
         rpId: TEST_RP_ORIGIN.replace("https://", ""),
         userId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array(nonExistentUserId)),
         name: "New Name",
         displayName: "New Display Name",
       });
-    }).toThrow(); // Should throw CTAP2_ERR_NO_CREDENTIALS
+    }); // Should throw CTAP2_ERR_NO_CREDENTIALS
   });
 });
 
@@ -538,9 +539,9 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
     const cred = emulator.get(TEST_RP_ORIGIN, { publicKey: parsed });
 
     const ext = cred.getClientExtensionResults();
-    expect("credProps" in ext && ext.credProps).toBeTruthy();
+    assert.ok("credProps" in ext && ext.credProps);
     if ("credProps" in ext && ext.credProps) {
-      expect(ext.credProps.rk).toBe(true);
+      assert.equal(ext.credProps.rk, true);
     }
   });
 
@@ -562,9 +563,9 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
     const parsed = parseRequestOptionsFromJSON(singleAllow);
     const cred = emulator.get(TEST_RP_ORIGIN, { publicKey: parsed });
     const ext = cred.getClientExtensionResults();
-    expect("credProps" in ext && ext.credProps).toBeTruthy();
+    assert.ok("credProps" in ext && ext.credProps);
     if ("credProps" in ext && ext.credProps) {
-      expect(ext.credProps.rk).toBe(false);
+      assert.equal(ext.credProps.rk, false);
     }
   });
 
@@ -583,7 +584,7 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
 
     // credentials exist
     const before = repository.loadCredentials();
-    expect(before.length).toBe(1);
+    assert.equal(before.length, 1);
     const existingId = before.map((c) => EncodeUtils.encodeBase64Url(c.publicKeyCredentialSource.id))[0];
     const actualUserId = EncodeUtils.encodeBase64Url(before[0].user.id);
     // ensure mismatch by altering actualUserId
@@ -596,8 +597,8 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
 
     const after = repository.loadCredentials();
     const remainingIds = after.map((c) => EncodeUtils.encodeBase64Url(c.publicKeyCredentialSource.id));
-    expect(remainingIds).toContain(existingId); // original credential remains
-    expect(after.length).toBe(1); // unchanged
+    assert.ok(remainingIds.includes(existingId)); // original credential remains
+    assert.equal(after.length, 1); // unchanged
   });
 
   test("signalAllAcceptedCredentials handles undefined totalCredentials (defaults to 0)", async () => {
@@ -611,13 +612,13 @@ describe("WebAuthnEmulator getClientExtensionResults.rk coverage", () => {
     }
 
     const emulator = new WebAuthnEmulator(new BeginNoTotalAuthenticator());
-    expect(() =>
+    assert.doesNotThrow(() =>
       emulator.signalAllAcceptedCredentials({
         rpId: TEST_RP_ORIGIN.replace("https://", ""),
         userId: "any-user",
         allAcceptedCredentialIds: [],
       }),
-    ).not.toThrow();
+    );
   });
 });
 
@@ -635,13 +636,13 @@ describe("WebAuthnEmulator DOMException mapping coverage", () => {
         displayName: "d",
       });
 
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("DataError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "DataError");
     }
   });
 
@@ -654,13 +655,13 @@ describe("WebAuthnEmulator DOMException mapping coverage", () => {
     const emulator = new WebAuthnEmulator(new BadCborAuthenticator());
 
     const call = () => emulator.getAuthenticatorInfo();
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("DataError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "DataError");
     }
   });
 
@@ -673,13 +674,13 @@ describe("WebAuthnEmulator DOMException mapping coverage", () => {
     const emulator = new WebAuthnEmulator(new InvalidCommandAuthenticator());
 
     const call = () => emulator.getAuthenticatorInfo();
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("UnknownError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "UnknownError");
     }
   });
 });
@@ -692,13 +693,13 @@ describe("WebAuthnEmulator credential management error mapping", () => {
         rpId: "example.com",
         credentialId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("nope")),
       });
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 
@@ -711,13 +712,13 @@ describe("WebAuthnEmulator credential management error mapping", () => {
         rpId: "example.com",
         credentialId: EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("missing")),
       });
-    expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+    assert.throws(call, DOMException as unknown as ErrorConstructor);
     try {
       call();
       throw new Error("Expected DOMException");
     } catch (e: unknown) {
-      expect(e).toBeInstanceOf(DOMException);
-      expect((e as DOMException).name).toBe("NotAllowedError");
+      assert.ok(e instanceof DOMException);
+      assert.equal((e as DOMException).name, "NotAllowedError");
     }
   });
 });
@@ -737,13 +738,13 @@ describe("WebAuthnEmulator invalid CBOR mapping on create/get", () => {
     const server = new WebAuthnTestServer();
     return server.getRegistrationOptions(user).then((opts) => {
       const call = () => emulator.createJSON(TEST_RP_ORIGIN, opts);
-      expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+      assert.throws(call, DOMException as unknown as ErrorConstructor);
       try {
         call();
         throw new Error("Expected DOMException");
       } catch (e: unknown) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe("DataError");
+        assert.ok(e instanceof DOMException);
+        assert.equal((e as DOMException).name, "DataError");
       }
     });
   });
@@ -766,13 +767,13 @@ describe("WebAuthnEmulator invalid CBOR mapping on create/get", () => {
       return server.getRegistrationVerification(user, regResp).then(async () => {
         const req = await server.getAuthenticationOptions();
         const call = () => emulator.getJSON(TEST_RP_ORIGIN, req);
-        expect(call).toThrow(DOMException as unknown as ErrorConstructor);
+        assert.throws(call, DOMException as unknown as ErrorConstructor);
         try {
           call();
           throw new Error("Expected DOMException");
         } catch (e: unknown) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe("DataError");
+          assert.ok(e instanceof DOMException);
+          assert.equal((e as DOMException).name, "DataError");
         }
       });
     });
@@ -793,9 +794,9 @@ describe("handleAuthenticatorCall other error path", () => {
       throw new Error("Expected Error to be thrown");
     } catch (e: unknown) {
       // Should not be mapped to DOMException; should be the original error
-      expect(e).not.toBeInstanceOf(DOMException);
-      expect(e).toBeInstanceOf(Error);
-      expect((e as Error).message).toBe("Non-CTAP failure");
+      assert.ok(!(e instanceof DOMException));
+      assert.ok(e instanceof Error);
+      assert.equal((e as Error).message, "Non-CTAP failure");
     }
   });
 });

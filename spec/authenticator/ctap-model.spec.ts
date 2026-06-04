@@ -1,4 +1,5 @@
-import { describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 import {
   type AuthenticatorCredentialManagementRequest,
   type AuthenticatorGetAssertionRequest,
@@ -44,8 +45,8 @@ describe("CTAP Model Test", () => {
     const unpacked = unpackRequest(packed);
     const rePacked = packMakeCredentialRequest(unpacked.request as AuthenticatorMakeCredentialRequest);
 
-    expect(packed).toEqual(rePacked);
-    expect(unpacked.request).toEqual(testRequest);
+    assert.deepEqual(packed, rePacked);
+    assert.deepEqual(unpacked.request, testRequest);
   });
 
   test("GetAssertionRequest CTAP Object pack and unpack", async () => {
@@ -63,8 +64,8 @@ describe("CTAP Model Test", () => {
     const unpacked = unpackRequest(packed);
     const rePacked = packGetAssertionRequest(unpacked.request as AuthenticatorGetAssertionRequest);
 
-    expect(packed).toEqual(rePacked);
-    expect(unpacked.request).toEqual(testRequest);
+    assert.deepEqual(packed, rePacked);
+    assert.deepEqual(unpacked.request, testRequest);
   });
 
   test("MakeCredentialResponse CTAP Object pack and unpack", async () => {
@@ -78,12 +79,13 @@ describe("CTAP Model Test", () => {
     const unpacked = unpackMakeCredentialResponse(packed);
     const rePacked = packMakeCredentialResponse(unpacked);
 
-    expect(packed).toEqual(rePacked);
-    expect(unpacked).toEqual(testResponse);
+    assert.deepEqual(packed, rePacked);
+    assert.deepEqual(unpacked, testResponse);
   });
 
   test("GetAssertionResponse CTAP Object pack and unpack", async () => {
     const testResponse: AuthenticatorGetAssertionResponse = {
+      credential: undefined,
       authData: new Uint8Array([97, 117, 116, 104, 68, 97, 116, 97]),
       signature: new Uint8Array([115, 105, 103]),
       user: { id: new Uint8Array([116, 101, 115, 116, 45, 117, 115, 101, 114]), name: "user", displayName: "user" },
@@ -94,8 +96,8 @@ describe("CTAP Model Test", () => {
     const unpacked = unpackGetAssertionResponse(packed);
     const rePacked = packGetAssertionResponse(unpacked);
 
-    expect(packed).toEqual(rePacked);
-    expect(unpacked).toEqual(testResponse);
+    assert.deepEqual(packed, rePacked);
+    assert.deepEqual(unpacked, testResponse);
   });
 
   test("GetInfoResponse CTAP Object pack and unpack", async () => {
@@ -112,17 +114,17 @@ describe("CTAP Model Test", () => {
     const unpacked = unpackGetInfoResponse(packed);
     const rePacked = packGetInfoResponse(unpacked);
 
-    expect(packed).toEqual(rePacked);
-    expect(unpacked).toEqual(testResponse);
+    assert.deepEqual(packed, rePacked);
+    assert.deepEqual(unpacked, testResponse);
   });
 
   test("Illegal data parse test _ failed to unpack", async () => {
     const response = {} as unknown as CTAPAuthenticatorResponse;
     const expected = "CTAP error: CTAP2_ERR_INVALID_CBOR (18)";
 
-    expect(() => unpackMakeCredentialResponse(response)).toThrow(expected);
-    expect(() => unpackGetAssertionResponse(response)).toThrow(expected);
-    expect(() => unpackGetInfoResponse(response)).toThrow(expected);
+    assert.throws(() => unpackMakeCredentialResponse(response), { message: expected });
+    assert.throws(() => unpackGetAssertionResponse(response), { message: expected });
+    assert.throws(() => unpackGetInfoResponse(response), { message: expected });
   });
 
   test("Illegal cbor data parse test _ failed to unpack", async () => {
@@ -130,14 +132,14 @@ describe("CTAP Model Test", () => {
       command: CTAP_COMMAND.authenticatorMakeCredential,
       data: new Uint8Array([1, 2, 3, 4, 5]),
     };
-    expect(() => unpackRequest(request)).toThrow("CTAP error: CTAP2_ERR_INVALID_CBOR (18)");
+    assert.throws(() => unpackRequest(request), { message: "CTAP error: CTAP2_ERR_INVALID_CBOR (18)" });
   });
 
   test("unpackRequest default branch returns undefined request for unhandled command", () => {
     const req = { command: CTAP_COMMAND.authenticatorClientPIN } as const; // not explicitly handled in switch
     const unpacked = unpackRequest(req);
-    expect(unpacked.command).toBe(CTAP_COMMAND.authenticatorClientPIN);
-    expect(unpacked.request).toBeUndefined();
+    assert.equal(unpacked.command, CTAP_COMMAND.authenticatorClientPIN);
+    assert.equal(unpacked.request, undefined);
   });
 
   test("credential management request with undefined optional params round-trips", () => {
@@ -146,20 +148,20 @@ describe("CTAP Model Test", () => {
       // subCommandParams and pinUvAuth* omitted intentionally
     });
     const unpacked = unpackCredentialManagementRequest(packed);
-    expect(unpacked.subCommand).toBe(CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin);
-    expect(unpacked.subCommandParams).toBeUndefined();
-    expect(unpacked.pinUvAuthParam).toBeUndefined();
-    expect(unpacked.pinUvAuthProtocol).toBeUndefined();
+    assert.equal(unpacked.subCommand, CREDENTIAL_MANAGEMENT_SUBCOMMAND.enumerateCredentialsBegin);
+    assert.equal(unpacked.subCommandParams, undefined);
+    assert.equal(unpacked.pinUvAuthParam, undefined);
+    assert.equal(unpacked.pinUvAuthProtocol, undefined);
   });
 
   test("credential management response optional binary fields handled when absent/present", () => {
     // Absent case
     const packedAbsent = packCredentialManagementResponse({});
     const absent = unpackCredentialManagementResponse(packedAbsent);
-    expect(absent.credentialID).toBeUndefined();
-    expect(absent.publicKey).toBeUndefined();
-    expect(absent.rpIDHash).toBeUndefined();
-    expect(absent.largeBlobKey).toBeUndefined();
+    assert.equal(absent.credentialID, undefined);
+    assert.equal(absent.publicKey, undefined);
+    assert.equal(absent.rpIDHash, undefined);
+    assert.equal(absent.largeBlobKey, undefined);
 
     // Present case
     const bin = new Uint8Array([1, 2, 3]);
@@ -170,15 +172,15 @@ describe("CTAP Model Test", () => {
       largeBlobKey: bin,
     });
     const present = unpackCredentialManagementResponse(packedPresent);
-    expect(present.credentialID).toBeDefined();
-    expect(present.publicKey).toBeDefined();
-    expect(present.rpIDHash).toBeDefined();
-    expect(present.largeBlobKey).toBeDefined();
+    assert.notEqual(present.credentialID, undefined);
+    assert.notEqual(present.publicKey, undefined);
+    assert.notEqual(present.rpIDHash, undefined);
+    assert.notEqual(present.largeBlobKey, undefined);
     if (present.credentialID && present.publicKey && present.rpIDHash && present.largeBlobKey) {
-      expect(Array.from(present.credentialID)).toEqual([1, 2, 3]);
-      expect(Array.from(present.publicKey)).toEqual([1, 2, 3]);
-      expect(Array.from(present.rpIDHash)).toEqual([1, 2, 3]);
-      expect(Array.from(present.largeBlobKey)).toEqual([1, 2, 3]);
+      assert.deepEqual(Array.from(present.credentialID), [1, 2, 3]);
+      assert.deepEqual(Array.from(present.publicKey), [1, 2, 3]);
+      assert.deepEqual(Array.from(present.rpIDHash), [1, 2, 3]);
+      assert.deepEqual(Array.from(present.largeBlobKey), [1, 2, 3]);
     }
   });
 
@@ -187,7 +189,7 @@ describe("CTAP Model Test", () => {
       command: CTAP_COMMAND.authenticatorCredentialManagement,
       data: new Uint8Array([1, 2, 3]),
     };
-    expect(() => unpackCredentialManagementRequest(bad)).toThrow(/CTAP2_ERR_INVALID_CBOR/);
+    assert.throws(() => unpackCredentialManagementRequest(bad), /CTAP2_ERR_INVALID_CBOR/);
   });
 
   test("unpackCredentialManagementResponse throws on invalid CBOR", () => {
@@ -195,7 +197,7 @@ describe("CTAP Model Test", () => {
       status: CTAP_STATUS_CODE.CTAP2_OK,
       data: new Uint8Array([1, 2, 3]),
     };
-    expect(() => unpackCredentialManagementResponse(bad)).toThrow(/CTAP2_ERR_INVALID_CBOR/);
+    assert.throws(() => unpackCredentialManagementResponse(bad), /CTAP2_ERR_INVALID_CBOR/);
   });
 
   test("unpackRequest CM includes pinUvAuthParam when present", () => {
@@ -209,9 +211,9 @@ describe("CTAP Model Test", () => {
     const req = unpacked.request;
     const isMgmt = (x: unknown): x is AuthenticatorCredentialManagementRequest =>
       typeof x === "object" && x !== null && "subCommand" in (x as Record<string, unknown>);
-    expect(isMgmt(req)).toBe(true);
+    assert.equal(isMgmt(req), true);
     if (isMgmt(req)) {
-      expect(Array.from(req.pinUvAuthParam ?? new Uint8Array())).toEqual([7, 7]);
+      assert.deepEqual(Array.from(req.pinUvAuthParam ?? new Uint8Array()), [7, 7]);
     }
   });
 
@@ -223,6 +225,6 @@ describe("CTAP Model Test", () => {
       pinUvAuthParam: pin,
     });
     const req = unpackCredentialManagementRequest(packed);
-    expect(Array.from(req.pinUvAuthParam ?? new Uint8Array())).toEqual([9, 9]);
+    assert.deepEqual(Array.from(req.pinUvAuthParam ?? new Uint8Array()), [9, 9]);
   });
 });

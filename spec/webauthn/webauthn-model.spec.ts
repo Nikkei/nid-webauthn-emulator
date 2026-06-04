@@ -1,4 +1,5 @@
-import { describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 import type { AuthenticatorOptions } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
@@ -30,8 +31,8 @@ describe("WebAuthn Model Test", () => {
     const unpacked = unpackAttestationObject(testData);
     const rePacked = packAttestationObject(unpacked);
     const reUnpacked = unpackAttestationObject(rePacked);
-    expect(rePacked).toEqual(testData);
-    expect(reUnpacked).toEqual(unpacked);
+    assert.deepEqual(rePacked, testData);
+    assert.deepEqual(reUnpacked, unpacked);
   });
 
   test("Attestation Object pack and unpack optional1", async () => {
@@ -48,13 +49,14 @@ describe("WebAuthn Model Test", () => {
         },
         rpIdHash: new Uint8Array(32),
         signCount: 0,
+        attestedCredentialData: undefined,
       },
       attStmt: { test: "test123" },
     };
 
     const packed = packAttestationObject(testData);
     const unpacked = unpackAttestationObject(packed);
-    expect(unpacked).toEqual(testData);
+    assert.deepEqual(unpacked, testData);
   });
 
   test("Undefined User Handle PublicKey serialize test", async () => {
@@ -67,10 +69,10 @@ describe("WebAuthn Model Test", () => {
     };
     const json = toPublickeyCredentialSourceJSON(testData);
     const model = parsePublicKeyCredentialSourceFromJSON(json);
-    expect(model).toEqual(testData);
+    assert.deepEqual(model, testData);
   });
 
-  test.each([
+  const createOptionCases: [AuthenticatorSelectionCriteria, AuthenticatorOptions][] = [
     [
       { residentKey: "required", userVerification: "required" },
       { rk: true, uv: true, up: true },
@@ -95,22 +97,24 @@ describe("WebAuthn Model Test", () => {
       { requireResidentKey: false, userVerification: "preferred" },
       { rk: false, uv: true, up: true },
     ],
-  ] as [
-    AuthenticatorSelectionCriteria,
-    AuthenticatorOptions,
-  ][])("toFido2CreateOptions test: $a", (criteria, expected) => {
-    expect(toFido2CreateOptions(criteria)).toEqual(expected);
-  });
+  ];
 
-  test.each([
+  for (const [criteria, expected] of createOptionCases) {
+    test(`toFido2CreateOptions test: ${JSON.stringify(criteria)}`, () => {
+      assert.deepEqual(toFido2CreateOptions(criteria), expected);
+    });
+  }
+
+  const userVerificationCases: [UserVerificationRequirement | undefined, boolean][] = [
     ["required", true],
     ["preferred", true],
     ["discouraged", false],
     [undefined, false],
-  ] as [
-    UserVerificationRequirement | undefined,
-    boolean,
-  ][])("UserVerificationRequirement test: $a", (criteria, expected) => {
-    expect(toFido2RequestOptions(criteria).uv).toEqual(expected);
-  });
+  ];
+
+  for (const [criteria, expected] of userVerificationCases) {
+    test(`UserVerificationRequirement test: ${criteria}`, () => {
+      assert.deepEqual(toFido2RequestOptions(criteria).uv, expected);
+    });
+  }
 });

@@ -1,4 +1,5 @@
-import { describe, expect, test } from "@jest/globals";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
@@ -36,7 +37,7 @@ describe("WebAuthn JSON Model Test", () => {
     const json = toCreationOptionsJSON(creationOption);
     const model = parseCreationOptionsFromJSON(json);
     const reJson = toCreationOptionsJSON(model);
-    expect(reJson).toEqual(json);
+    assert.deepEqual(reJson, json);
   });
 
   test("Create Response JSON Serialize Deserialize test", async () => {
@@ -46,14 +47,14 @@ describe("WebAuthn JSON Model Test", () => {
     const json = toRegistrationResponseJSON(response);
     const model = parseRegistrationResponseFromJSON(json);
     const reJson = toRegistrationResponseJSON(model);
-    expect(reJson).toEqual(json);
+    assert.deepEqual(reJson, json);
   });
 
   test("Get Option JSON Serialize Deserialize test", async () => {
     const json = toRequestOptionsJSON(requestOption);
     const model = parseRequestOptionsFromJSON(json);
     const reJson = toRequestOptionsJSON(model);
-    expect(reJson).toEqual(json);
+    assert.deepEqual(reJson, json);
   });
 
   test("Get Response JSON Serialize Deserialize test", async () => {
@@ -65,7 +66,7 @@ describe("WebAuthn JSON Model Test", () => {
     const json = toAuthenticationResponseJSON(response);
     const model = parseAuthenticationResponseFromJSON(json);
     const reJson = toAuthenticationResponseJSON(model);
-    expect(reJson).toEqual(json);
+    assert.deepEqual(reJson, json);
   });
 
   test("Create Response JSON optional test", async () => {
@@ -78,11 +79,11 @@ describe("WebAuthn JSON Model Test", () => {
       response: { ...json.response, publicKey: undefined, publicKeyAlgorithm: undefined },
     };
     const model = parseRegistrationResponseFromJSON(customJson);
-    expect(model.authenticatorAttachment).toEqual(customJson.authenticatorAttachment);
-    expect(model.response.getPublicKey()).toBeNull();
-    expect(model.response.getPublicKeyAlgorithm()).toEqual(-1);
-    expect(toRegistrationResponseJSON(model)).toEqual(customJson);
-    expect(model.toJSON()).toEqual(customJson);
+    assert.deepEqual(model.authenticatorAttachment, customJson.authenticatorAttachment);
+    assert.equal(model.response.getPublicKey(), null);
+    assert.deepEqual(model.response.getPublicKeyAlgorithm(), -1);
+    assert.deepEqual(toRegistrationResponseJSON(model), customJson);
+    assert.deepEqual(model.toJSON(), customJson);
   });
 
   test("Get Response JSON optional test", async () => {
@@ -95,9 +96,9 @@ describe("WebAuthn JSON Model Test", () => {
       response: { ...json.response, userHandle: undefined },
     };
     const model = parseAuthenticationResponseFromJSON(customJson);
-    expect(model.response.userHandle).toBeNull();
-    expect(toAuthenticationResponseJSON(model)).toEqual(customJson);
-    expect(model.toJSON()).toEqual(customJson);
+    assert.equal(model.response.userHandle, null);
+    assert.deepEqual(toAuthenticationResponseJSON(model), customJson);
+    assert.deepEqual(model.toJSON(), customJson);
   });
 
   test("Parse Authentication Response with User Handle JSON test", async () => {
@@ -115,6 +116,6 @@ describe("WebAuthn JSON Model Test", () => {
     };
     const model = parseAuthenticationResponseFromJSON(testData);
     const json = model.toJSON();
-    expect(json).toEqual(testData);
+    assert.deepEqual(json, testData);
   });
 });
