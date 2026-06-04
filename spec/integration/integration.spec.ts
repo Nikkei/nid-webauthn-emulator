@@ -3,7 +3,10 @@ import WebAuthnEmulator from "../../src/index";
 import { WebAuthnIO } from "./webauthn-io";
 
 describe("Passkeys Integration Test by webauthn.io", () => {
-  test.skip("Registration Ceremony and Authentication Ceremony", { timeout: 60_000 }, async () => {
+  test("Registration Ceremony and Authentication Ceremony", {
+    timeout: 60_000,
+    skip: process.env.RUN_WEBAUTHN_IO !== "1",
+  }, async () => {
     const origin = "https://webauthn.io";
     const emulator = new WebAuthnEmulator();
     const webauthnIO = await WebAuthnIO.create();

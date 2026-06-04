@@ -94,6 +94,12 @@ const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.co
 
 WebAuthn の著名なデモサイトである [webauthn.io](https://webauthn.io/) での使用例を示します。[統合テスト](spec/integration/integration.spec.ts) に実際にうごくテストコード例があります。
 
+webauthn.io の統合テストは外部サイトに依存するため、通常の `pnpm test` ではスキップされます。このテストだけを実行する場合は、下記のコマンドを利用してください。
+
+```sh
+pnpm test:webauthn-io
+```
+
 ```TypeScript
 // Origin および WebAuthn API エミュレータを初期化します
 // ここでは、https://webauthn.io を Origin として利用します
