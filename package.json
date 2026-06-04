@@ -19,6 +19,7 @@
   "scripts": {
     "check": "biome check .",
     "test": "node --test --test-concurrency=4 --require ts-node/register \"spec/**/*.spec.ts\"",
+    "test:webauthn-io": "RUN_WEBAUTHN_IO=1 node --test --require ts-node/register --test-name-pattern \"Registration Ceremony and Authentication Ceremony\" spec/integration/integration.spec.ts",
     "build": "tsc"
   },
   "main": "dist/src/index.js",
