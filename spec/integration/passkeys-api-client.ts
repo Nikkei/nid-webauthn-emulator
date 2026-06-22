@@ -1,10 +1,3 @@
-import type {
-  AuthenticationResponseJSON,
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-  RegistrationResponseJSON,
-} from "../../src/webauthn/webauthn-model-json";
-
 export interface PasskeysUser {
   username: string;
   id: string;

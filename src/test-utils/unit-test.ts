@@ -1,12 +1,9 @@
 import { AuthenticatorEmulator } from "../authenticator/authenticator-emulator";
 import { WebAuthnEmulator } from "../webauthn/webauthn-emulator";
 import {
-  type AllAcceptedCredentialsOptionsJSON,
-  type CurrentUserDetailsOptionsJSON,
   encodeBase64Url,
   parseCreationOptionsFromJSON,
   parseRequestOptionsFromJSON,
-  type UnknownCredentialOptionsJSON,
 } from "../webauthn/webauthn-model-json";
 
 type PasskeysEmulatorParams = {
@@ -53,19 +50,18 @@ export const createPasskeysEmulator = (params?: PasskeysEmulatorParams) => {
 
   const publicKeyCredentials = {
     isConditionalMediationAvailable: async () => Promise.resolve(params?.autofill ?? true),
-    signalUnknownCredential: async (options: UnknownCredentialOptionsJSON) => instance.signalUnknownCredential(options),
-    signalAllAcceptedCredentials: async (options: AllAcceptedCredentialsOptionsJSON) =>
+    signalUnknownCredential: async (options: UnknownCredentialOptions) => instance.signalUnknownCredential(options),
+    signalAllAcceptedCredentials: async (options: AllAcceptedCredentialsOptions) =>
       instance.signalAllAcceptedCredentials(options),
-    signalCurrentUserDetails: async (options: CurrentUserDetailsOptionsJSON) =>
-      instance.signalCurrentUserDetails(options),
+    signalCurrentUserDetails: async (options: CurrentUserDetailsOptions) => instance.signalCurrentUserDetails(options),
     getClientCapabilities: async () => ({ conditionalGet: true }),
     isUserVerifyingPlatformAuthenticatorAvailable: async () => true,
     parseCreationOptionsFromJSON: parseCreationOptionsFromJSON,
     parseRequestOptionsFromJSON: parseRequestOptionsFromJSON,
   } as unknown as typeof PublicKeyCredential & {
-    signalUnknownCredential(options: UnknownCredentialOptionsJSON): Promise<void>;
-    signalAllAcceptedCredentials(options: AllAcceptedCredentialsOptionsJSON): Promise<void>;
-    signalCurrentUserDetails(options: CurrentUserDetailsOptionsJSON): Promise<void>;
+    signalUnknownCredential(options: UnknownCredentialOptions): Promise<void>;
+    signalAllAcceptedCredentials(options: AllAcceptedCredentialsOptions): Promise<void>;
+    signalCurrentUserDetails(options: CurrentUserDetailsOptions): Promise<void>;
     isConditionalMediationAvailable?(): Promise<boolean>;
   };
 

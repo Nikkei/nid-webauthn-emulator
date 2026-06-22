@@ -4,7 +4,8 @@
     "target": "ES2022",
     "resolveJsonModule": true,
     "outDir": "dist",
-    "declaration": true
+    "declaration": true,
+    "types": ["node"]
   },
   "include": ["src", "spec"],
   "exclude": ["dist", "node_modules"]
