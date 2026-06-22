@@ -1,15 +1,15 @@
 name: Publish package
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
 
     steps:
@@ -38,4 +38,4 @@ jobs:
         env:
           NPM_TOKEN: ""
           NODE_AUTH_TOKEN: ""
-        run: pnpm publish --no-git-checks --access public --provenance
+        run: pnpm publish --no-git-checks --access public
