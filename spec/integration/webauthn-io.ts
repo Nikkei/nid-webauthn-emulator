@@ -1,9 +1,3 @@
-import type {
-  AuthenticationResponseJSON,
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-  RegistrationResponseJSON,
-} from "../../src/webauthn/webauthn-model-json";
 import type { PasskeysApiClient, PasskeysUser } from "./passkeys-api-client";
 
 /**

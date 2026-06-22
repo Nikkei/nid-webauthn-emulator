@@ -1,15 +1,10 @@
+import type { VerifyAuthenticationResponseOpts, VerifyRegistrationResponseOpts } from "@simplewebauthn/server";
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import type {
-  AuthenticationResponseJSON,
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-  RegistrationResponseJSON,
-} from "../../src";
 import type { PasskeysApiClient, PasskeysUser } from "../integration/passkeys-api-client";
 
 type UserModel = {
@@ -62,7 +57,7 @@ export class WebAuthnTestServer implements PasskeysApiClient {
 
   async getRegistrationVerification(user: PasskeysUser, response: RegistrationResponseJSON): Promise<void> {
     const verification = await verifyRegistrationResponse({
-      response,
+      response: response as VerifyRegistrationResponseOpts["response"],
       expectedChallenge: (challenge) => this.challenges.has(challenge),
       expectedOrigin: this.origin,
       expectedRPID: this.rpID,
@@ -98,7 +93,7 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     if (!credential) throw new Error("Credential not found");
 
     const verification = await verifyAuthenticationResponse({
-      response,
+      response: response as VerifyAuthenticationResponseOpts["response"],
       expectedChallenge: (challenge) => this.challenges.has(challenge),
       expectedOrigin: this.origin,
       expectedRPID: this.rpID,

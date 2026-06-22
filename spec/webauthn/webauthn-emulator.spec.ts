@@ -8,8 +8,6 @@ import WebAuthnEmulator, {
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
   type PasskeysCredentialsRepository,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
   packCredentialManagementResponse,
   parseRequestOptionsFromJSON,
   toPublicKeyCredentialDescriptorJSON,

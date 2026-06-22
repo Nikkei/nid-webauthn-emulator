@@ -10,8 +10,6 @@ import {
 } from "../webauthn/webauthn-model";
 
 import {
-  type PublicKeyCredentialDescriptorJSON,
-  type PublicKeyCredentialUserEntityJSON,
   parsePublicKeyCredentialDescriptorFromJSON,
   parsePublicKeyCredentialUserEntityFromJSON,
   toPublicKeyCredentialDescriptorJSON,

@@ -4,12 +4,10 @@ import { describe, test } from "node:test";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import {
-  type AuthenticationResponseJSON,
   parseAuthenticationResponseFromJSON,
   parseCreationOptionsFromJSON,
   parseRegistrationResponseFromJSON,
   parseRequestOptionsFromJSON,
-  type RegistrationResponseJSON,
   toAuthenticationResponseJSON,
   toCreationOptionsJSON,
   toRegistrationResponseJSON,
@@ -76,7 +74,7 @@ describe("WebAuthn JSON Model Test", () => {
     const customJson: RegistrationResponseJSON = {
       ...json,
       authenticatorAttachment: "platform",
-      response: { ...json.response, publicKey: undefined, publicKeyAlgorithm: undefined },
+      response: { ...json.response, publicKey: undefined, publicKeyAlgorithm: -1 },
     };
     const model = parseRegistrationResponseFromJSON(customJson);
     assert.deepEqual(model.authenticatorAttachment, customJson.authenticatorAttachment);

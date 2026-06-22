@@ -26,20 +26,13 @@ import {
   unpackAuthenticatorData,
 } from "./webauthn-model";
 import {
-  type AllAcceptedCredentialsOptionsJSON,
-  type AuthenticationResponseJSON,
   type CreatePublicKeyCredential,
-  type CurrentUserDetailsOptionsJSON,
   decodeBase64Url,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type PublicKeyCredentialRequestOptionsJSON,
   parseCreationOptionsFromJSON,
   parseRequestOptionsFromJSON,
-  type RegistrationResponseJSON,
   type RequestPublicKeyCredential,
   toAuthenticationResponseJSON,
   toRegistrationResponseJSON,
-  type UnknownCredentialOptionsJSON,
 } from "./webauthn-model-json";
 
 export type AuthenticatorInfo = {
@@ -129,7 +122,7 @@ export class WebAuthnEmulator {
     };
   }
 
-  public signalUnknownCredential(options: UnknownCredentialOptionsJSON): void {
+  public signalUnknownCredential(options: UnknownCredentialOptions): void {
     const credentialId = decodeBase64Url(options.credentialId);
     this.handleAuthenticatorCall(() =>
       this.authenticator.command(
@@ -148,7 +141,7 @@ export class WebAuthnEmulator {
    * Signal all accepted credentials for a user
    * @see https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/signalAllAcceptedCredentials_static
    */
-  public signalAllAcceptedCredentials(options: AllAcceptedCredentialsOptionsJSON): void {
+  public signalAllAcceptedCredentials(options: AllAcceptedCredentialsOptions): void {
     // Create a set of accepted credential IDs for quick lookup
     const acceptedCredentialIds = new Set(options.allAcceptedCredentialIds);
 
@@ -225,7 +218,7 @@ export class WebAuthnEmulator {
    * Signal current user details
    * @see https://developer.mozilla.org/en-US/docs/Web/API/PublicKeyCredential/signalCurrentUserDetails_static
    */
-  public signalCurrentUserDetails(options: CurrentUserDetailsOptionsJSON): void {
+  public signalCurrentUserDetails(options: CurrentUserDetailsOptions): void {
     const userId = decodeBase64Url(options.userId);
 
     // Create user object with updated information

@@ -1,41 +1,5 @@
 // Do not import anything here, it should be a standalone file
 
-type Base64urlString = string;
-type AuthenticationExtensionsClientInputsJSON = object;
-type AuthenticationExtensionsClientOutputsJSON = object;
-
-// options for navigator.credentials.create() serialization
-// @see https://www.w3.org/TR/webauthn-3/#sctn-parseCreationOptionsFromJSON
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptionsjson */
-export interface PublicKeyCredentialCreationOptionsJSON {
-  readonly rp: PublicKeyCredentialRpEntity;
-  readonly user: PublicKeyCredentialUserEntityJSON;
-  readonly challenge: Base64urlString;
-  readonly pubKeyCredParams: PublicKeyCredentialParameters[];
-  readonly timeout?: number;
-  readonly excludeCredentials?: PublicKeyCredentialDescriptorJSON[];
-  readonly authenticatorSelection?: AuthenticatorSelectionCriteria;
-  readonly hints?: string[];
-  readonly attestation?: string;
-  readonly attestationFormats?: string[];
-  readonly extensions?: AuthenticationExtensionsClientInputsJSON;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentityjson */
-export interface PublicKeyCredentialUserEntityJSON {
-  readonly id: Base64urlString;
-  readonly name: string;
-  readonly displayName: string;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialdescriptorjson */
-export interface PublicKeyCredentialDescriptorJSON {
-  readonly id: Base64urlString;
-  readonly type: string;
-  transports?: string[];
-}
-
 /** @see https://www.w3.org/TR/webauthn-3/#sctn-parseCreationOptionsFromJSON */
 export function parseCreationOptionsFromJSON(
   optionsJSON: PublicKeyCredentialCreationOptionsJSON,
@@ -49,24 +13,8 @@ export function parseCreationOptionsFromJSON(
     excludeCredentials: optionsJSON.excludeCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     authenticatorSelection: optionsJSON.authenticatorSelection,
     attestation: optionsJSON.attestation as AttestationConveyancePreference,
-    extensions: optionsJSON.extensions,
+    extensions: optionsJSON.extensions as AuthenticationExtensionsClientInputs | undefined,
   };
-}
-
-// options for navigator.credentials.get() serialization
-// @see https://www.w3.org/TR/webauthn-3/#sctn-parseRequestOptionsFromJSON
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptionsjson */
-export interface PublicKeyCredentialRequestOptionsJSON {
-  readonly challenge: Base64urlString;
-  readonly timeout?: number;
-  readonly rpId?: string;
-  readonly allowCredentials?: PublicKeyCredentialDescriptorJSON[];
-  readonly userVerification?: string;
-  readonly hints?: string[];
-  readonly attestation?: string;
-  readonly attestationFormats?: string[];
-  readonly extensions?: AuthenticationExtensionsClientInputsJSON;
 }
 
 /** @see https://www.w3.org/TR/webauthn-3/#sctn-parseRequestOptionsFromJSON */
@@ -79,7 +27,7 @@ export function parseRequestOptionsFromJSON(
     rpId: optionsJSON.rpId,
     allowCredentials: optionsJSON.allowCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     userVerification: optionsJSON.userVerification as UserVerificationRequirement,
-    extensions: optionsJSON.extensions,
+    extensions: optionsJSON.extensions as AuthenticationExtensionsClientInputs | undefined,
   };
 }
 
@@ -87,55 +35,16 @@ export function parseRequestOptionsFromJSON(
 // @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson
 
 export interface CreatePublicKeyCredential extends PublicKeyCredential {
-  response: AuthenticatorAttestationResponse;
+  readonly response: AuthenticatorAttestationResponse;
   toJSON(): RegistrationResponseJSON;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-registrationresponsejson */
-export interface RegistrationResponseJSON {
-  readonly id: Base64urlString;
-  readonly rawId: Base64urlString;
-  readonly response: AuthenticatorAttestationResponseJSON;
-  readonly authenticatorAttachment?: AuthenticatorAttachment;
-  readonly clientExtensionResults: AuthenticationExtensionsClientOutputsJSON;
-  readonly type: PublicKeyCredentialType;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorattestationresponsejson */
-interface AuthenticatorAttestationResponseJSON {
-  readonly clientDataJSON: Base64urlString;
-  readonly authenticatorData: Base64urlString;
-  readonly transports: AuthenticatorTransport[];
-  readonly publicKey?: Base64urlString;
-  readonly publicKeyAlgorithm?: number;
-  readonly attestationObject: Base64urlString;
 }
 
 // response for navigator.credentials.get() serialization
 // @see https://www.w3.org/TR/webauthn-3/#dom-publickeycredential-tojson
 
 export interface RequestPublicKeyCredential extends PublicKeyCredential {
-  response: AuthenticatorAssertionResponse;
+  readonly response: AuthenticatorAssertionResponse;
   toJSON(): AuthenticationResponseJSON;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticationresponsejson */
-export interface AuthenticationResponseJSON {
-  readonly id: Base64urlString;
-  readonly rawId: Base64urlString;
-  readonly response: AuthenticatorAssertionResponseJSON;
-  readonly authenticatorAttachment?: AuthenticatorAttachment;
-  readonly clientExtensionResults: AuthenticationExtensionsClientOutputsJSON;
-  readonly type: PublicKeyCredentialType;
-}
-
-/** @see https://www.w3.org/TR/webauthn-3/#dictdef-authenticatorassertionresponsejson */
-interface AuthenticatorAssertionResponseJSON {
-  readonly clientDataJSON: Base64urlString;
-  readonly authenticatorData: Base64urlString;
-  readonly signature: Base64urlString;
-  readonly userHandle?: Base64urlString;
-  readonly attestationObject?: Base64urlString;
 }
 
 // Not standard mapping functions
@@ -147,9 +56,9 @@ export function toRegistrationResponseJSON(credential: PublicKeyCredential): Reg
   const responseJSON = {
     clientDataJSON: encodeBase64Url(attestationResponse.clientDataJSON),
     authenticatorData: encodeBase64Url(attestationResponse.getAuthenticatorData()),
-    transports: attestationResponse.getTransports() as AuthenticatorTransport[],
+    transports: attestationResponse.getTransports(),
     publicKey: publicKey ? encodeBase64Url(publicKey) : undefined,
-    publicKeyAlgorithm: algorithm === -1 ? undefined : algorithm,
+    publicKeyAlgorithm: algorithm,
     attestationObject: encodeBase64Url(attestationResponse.attestationObject),
   };
 
@@ -199,7 +108,7 @@ export function toCreationOptionsJSON(
     excludeCredentials: options.excludeCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     authenticatorSelection: options.authenticatorSelection,
     attestation: options.attestation,
-    extensions: options.extensions,
+    extensions: options.extensions as AuthenticationExtensionsClientInputsJSON | undefined,
   };
 }
 
@@ -212,7 +121,7 @@ export function toRequestOptionsJSON(
     rpId: options.rpId,
     allowCredentials: options.allowCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     userVerification: options.userVerification,
-    extensions: options.extensions,
+    extensions: options.extensions as AuthenticationExtensionsClientInputsJSON | undefined,
   };
 }
 
@@ -223,34 +132,16 @@ export function parseRegistrationResponseFromJSON(options: RegistrationResponseJ
     response: {
       clientDataJSON: decodeBase64Url(options.response.clientDataJSON),
       getAuthenticatorData: () => decodeBase64Url(options.response.authenticatorData),
-      getTransports: () => options.response.transports,
+      getTransports: () => options.response.transports as AuthenticatorTransport[],
       getPublicKey: () => (options.response.publicKey ? decodeBase64Url(options.response.publicKey) : null),
       getPublicKeyAlgorithm: () => options.response.publicKeyAlgorithm ?? -1,
       attestationObject: decodeBase64Url(options.response.attestationObject),
     },
     authenticatorAttachment: options.authenticatorAttachment ?? null,
-    getClientExtensionResults: () => options.clientExtensionResults,
+    getClientExtensionResults: () => options.clientExtensionResults as AuthenticationExtensionsClientOutputs,
     toJSON: () => options,
     type: options.type,
   };
-}
-
-export interface UnknownCredentialOptionsJSON {
-  rpId: string;
-  credentialId: Base64urlString;
-}
-
-export interface AllAcceptedCredentialsOptionsJSON {
-  rpId: string;
-  userId: Base64urlString;
-  allAcceptedCredentialIds: Base64urlString[];
-}
-
-export interface CurrentUserDetailsOptionsJSON {
-  rpId: string;
-  userId: Base64urlString;
-  name: string;
-  displayName: string;
 }
 
 export function parseAuthenticationResponseFromJSON(options: AuthenticationResponseJSON): RequestPublicKeyCredential {
@@ -264,7 +155,7 @@ export function parseAuthenticationResponseFromJSON(options: AuthenticationRespo
       userHandle: options.response.userHandle ? decodeBase64Url(options.response.userHandle) : null,
     },
     authenticatorAttachment: options.authenticatorAttachment ?? null,
-    getClientExtensionResults: () => options.clientExtensionResults,
+    getClientExtensionResults: () => options.clientExtensionResults as AuthenticationExtensionsClientOutputs,
     toJSON: () => options,
     type: options.type,
   };
