@@ -45,6 +45,8 @@ export type PublicKeyCredentialSource = {
   privateKey: Uint8Array<ArrayBuffer>;
   rpId: RpId;
   userHandle?: Uint8Array<ArrayBuffer>;
+  // Per-credential 32 byte secret for PRF extension (CTAP2 hmac-secret)
+  credRandom?: Uint8Array<ArrayBuffer>;
 };
 
 /** @see https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data */
@@ -181,6 +183,7 @@ export type PublicKeyCredentialSourceJSON = {
   privateKey: string;
   rpId: string;
   userHandle?: string;
+  credRandom?: string;
 };
 
 export function toPublickeyCredentialSourceJSON(
@@ -192,6 +195,7 @@ export function toPublickeyCredentialSourceJSON(
     privateKey: EncodeUtils.encodeBase64Url(credentialSource.privateKey),
     rpId: credentialSource.rpId.value,
     userHandle: credentialSource.userHandle ? EncodeUtils.encodeBase64Url(credentialSource.userHandle) : undefined,
+    credRandom: credentialSource.credRandom ? EncodeUtils.encodeBase64Url(credentialSource.credRandom) : undefined,
   };
 }
 
@@ -202,6 +206,7 @@ export function parsePublicKeyCredentialSourceFromJSON(json: PublicKeyCredential
     privateKey: EncodeUtils.decodeBase64Url(json.privateKey),
     rpId: new RpId(json.rpId),
     userHandle: json.userHandle ? EncodeUtils.decodeBase64Url(json.userHandle) : undefined,
+    credRandom: json.credRandom ? EncodeUtils.decodeBase64Url(json.credRandom) : undefined,
   };
 }
 

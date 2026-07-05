@@ -66,6 +66,21 @@ describe("WebAuthn Model Test", () => {
       privateKey: new Uint8Array([116, 101, 115, 116, 45, 99]),
       rpId: new RpId("test-rp.org"),
       userHandle: undefined,
+      credRandom: undefined,
+    };
+    const json = toPublickeyCredentialSourceJSON(testData);
+    const model = parsePublicKeyCredentialSourceFromJSON(json);
+    assert.deepEqual(model, testData);
+  });
+
+  test("CredRandom PublicKey serialize test", async () => {
+    const testData: PublicKeyCredentialSource = {
+      type: "public-key",
+      id: new Uint8Array([116, 101, 115, 116, 45, 99]),
+      privateKey: new Uint8Array([116, 101, 115, 116, 45, 99]),
+      rpId: new RpId("test-rp.org"),
+      userHandle: new Uint8Array([1, 2, 3, 4]),
+      credRandom: new Uint8Array(32).fill(1),
     };
     const json = toPublickeyCredentialSourceJSON(testData);
     const model = parsePublicKeyCredentialSourceFromJSON(json);
