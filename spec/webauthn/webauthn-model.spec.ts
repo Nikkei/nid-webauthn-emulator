@@ -50,6 +50,7 @@ describe("WebAuthn Model Test", () => {
         rpIdHash: new Uint8Array(32),
         signCount: 0,
         attestedCredentialData: undefined,
+        extensions: { "hmac-secret": true },
       },
       attStmt: { test: "test123" },
     };
@@ -57,6 +58,29 @@ describe("WebAuthn Model Test", () => {
     const packed = packAttestationObject(testData);
     const unpacked = unpackAttestationObject(packed);
     assert.deepEqual(unpacked, testData);
+  });
+
+  test("Attestation Object pack and unpack with attested credential data and extensions", async () => {
+    const createResponse = webauthnEmulator.create("https://test-rp.org", {
+      publicKey: {
+        rp: { name: "test-rp.org", id: "test-rp.org" },
+        user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
+        challenge: EncodeUtils.strToUint8Array("challenge"),
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      },
+    });
+
+    const testData = unpackAttestationObject(new Uint8Array(createResponse.response.attestationObject));
+    testData.authData.flags.extensionData = true;
+    testData.authData.extensions = { "hmac-secret": new Uint8Array(32).fill(9) };
+
+    const packed = packAttestationObject(testData);
+    const unpacked = unpackAttestationObject(packed);
+    assert.deepEqual(unpacked, testData);
+
+    assert.equal(unpacked.authData.flags.extensionData, true);
+    assert.equal(unpacked.authData.flags.attestedCredentialData, true);
+    assert.deepEqual(unpacked.authData.extensions, { "hmac-secret": new Uint8Array(32).fill(9) });
   });
 
   test("Undefined User Handle PublicKey serialize test", async () => {

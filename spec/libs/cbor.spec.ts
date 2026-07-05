@@ -82,6 +82,18 @@ describe("CBOR encode/decode edge cases", () => {
     assert.equal(EncodeUtils.decodeCbor<null>(new Uint8Array([0xf6])), null);
   });
 
+  test("decodeCborWithRemainder returns the first value and trailing bytes", () => {
+    const first = EncodeUtils.encodeCbor({ 1: "a", [-2]: new Uint8Array([9, 9]) });
+    const second = EncodeUtils.encodeCbor({ 2: "b" });
+    const combined = new Uint8Array([...first, ...second]);
+
+    const { value, remainder } = EncodeUtils.decodeCborWithRemainder<Record<string | number, unknown>>(combined);
+
+    assert.equal(value[1], "a");
+    assert.deepEqual(value[-2], new Uint8Array([9, 9]));
+    assert.deepEqual(remainder, second);
+  });
+
   test("rejects unsupported values and malformed input", () => {
     assert.throws(() => EncodeUtils.encodeCbor(Symbol("unsupported") as unknown as object), {
       message: "Unsupported CBOR value type: symbol",

@@ -98,10 +98,18 @@ export function packAttestationObject(attestationObject: AttestationObject): Uin
 export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array<ArrayBuffer> {
   const ret: Array<number> = [];
   const cred = authData.attestedCredentialData;
+  const extensions = authData.extensions;
   ret.push(...authData.rpIdHash);
-  ret.push(packAuthenticatorDataFlags({ ...authData.flags, attestedCredentialData: Boolean(cred) }));
+  ret.push(
+    packAuthenticatorDataFlags({
+      ...authData.flags,
+      attestedCredentialData: Boolean(cred),
+      extensionData: Boolean(extensions),
+    }),
+  );
   ret.push(...packSignCount(authData.signCount));
   if (cred) ret.push(...packAttestedCredentialData(cred));
+  if (extensions) ret.push(...EncodeUtils.encodeCbor(extensions));
   return new Uint8Array(ret);
 }
 
@@ -152,18 +160,38 @@ export function unpackAuthenticatorData(authData: Uint8Array<ArrayBuffer>): Auth
   const rpIdHash = authData.slice(0, 32);
   const flags = unpackAuthenticatorDataFlags(authData[32]);
   const signCount = (authData[33] << 24) | (authData[34] << 16) | (authData[35] << 8) | authData[36];
-  const attestedCredentialData = flags.attestedCredentialData
-    ? unpackAttestedCredentialData(authData.slice(37))
-    : undefined;
-  return { rpIdHash, flags, signCount, attestedCredentialData };
+
+  let offset = 37;
+  let attestedCredentialData: AttestedCredentialData | undefined;
+  if (flags.attestedCredentialData) {
+    const unpacked = unpackAttestedCredentialData(authData.slice(offset));
+    attestedCredentialData = unpacked.attestedCredentialData;
+    offset += unpacked.length;
+  }
+
+  let extensions: object | undefined;
+  if (flags.extensionData) {
+    extensions = EncodeUtils.decodeCbor(authData.slice(offset));
+  }
+
+  return { rpIdHash, flags, signCount, attestedCredentialData, extensions };
 }
 
-function unpackAttestedCredentialData(data: Uint8Array<ArrayBuffer>): AttestedCredentialData {
+function unpackAttestedCredentialData(data: Uint8Array<ArrayBuffer>): {
+  attestedCredentialData: AttestedCredentialData;
+  length: number;
+} {
   const aaguid = data.slice(0, 16);
   const credentialIdLength = (data[16] << 8) | data[17];
   const credentialId = data.slice(18, 18 + credentialIdLength);
-  const publicKey = CoseKey.fromBytes(data.slice(18 + credentialIdLength));
-  return { aaguid, credentialId, credentialPublicKey: publicKey };
+  const { value, remainder } = EncodeUtils.decodeCborWithRemainder<Record<number, unknown>>(
+    data.slice(18 + credentialIdLength),
+  );
+  const credentialPublicKey = CoseKey.fromDecoded(value);
+  return {
+    attestedCredentialData: { aaguid, credentialId, credentialPublicKey },
+    length: data.length - remainder.length,
+  };
 }
 
 function unpackAuthenticatorDataFlags(flags: number): AuthenticatorData["flags"] {

@@ -33,14 +33,17 @@ export abstract class CoseKey {
   }
 
   public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKey {
-    const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
+    return CoseKey.fromDecoded(EncodeUtils.decodeCbor<Record<number, unknown>>(bytes));
+  }
+
+  public static fromDecoded(coseKey: Record<number, unknown>): CoseKey {
     switch (coseKey[3]) {
       case -7:
-        return CoseKeyP256.fromBytes(bytes);
+        return new CoseKeyP256(coseKey[-2] as Uint8Array<ArrayBuffer>, coseKey[-3] as Uint8Array<ArrayBuffer>);
       case -8:
-        return CoseKeyEd25519.fromBytes(bytes);
+        return new CoseKeyEd25519(coseKey[-2] as Uint8Array<ArrayBuffer>);
       case -257:
-        return CoseKeyRSA.fromBytes(bytes);
+        return new CoseKeyRSA(coseKey[-1] as Uint8Array<ArrayBuffer>, coseKey[-2] as Uint8Array<ArrayBuffer>);
       default:
         throw new Error("Not supported key type");
     }
@@ -82,11 +85,6 @@ class CoseKeyP256 extends CoseKey {
     };
   }
 
-  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyP256 {
-    const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyP256(coseKey[-2] as Uint8Array<ArrayBuffer>, coseKey[-3] as Uint8Array<ArrayBuffer>);
-  }
-
   public static fromJwk(jwk: JsonWebKey): CoseKeyP256 {
     return new CoseKeyP256(EncodeUtils.decodeBase64Url(jwk.x as string), EncodeUtils.decodeBase64Url(jwk.y as string));
   }
@@ -113,11 +111,6 @@ class CoseKeyEd25519 extends CoseKey {
       crv: "Ed25519",
       x: EncodeUtils.encodeBase64Url(this.x),
     };
-  }
-
-  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyEd25519 {
-    const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyEd25519(coseKey[-2] as Uint8Array<ArrayBuffer>);
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyEd25519 {
@@ -149,11 +142,6 @@ class CoseKeyRSA extends CoseKey {
       n: EncodeUtils.encodeBase64Url(this.n),
       e: EncodeUtils.encodeBase64Url(this.e),
     };
-  }
-
-  public static fromBytes(bytes: Uint8Array<ArrayBuffer>): CoseKeyRSA {
-    const coseKey = EncodeUtils.decodeCbor<Record<number, unknown>>(bytes);
-    return new CoseKeyRSA(coseKey[-1] as Uint8Array<ArrayBuffer>, coseKey[-2] as Uint8Array<ArrayBuffer>);
   }
 
   public static fromJwk(jwk: JsonWebKey): CoseKeyRSA {
