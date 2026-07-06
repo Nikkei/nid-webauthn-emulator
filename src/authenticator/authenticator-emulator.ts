@@ -1,4 +1,4 @@
-import { createCipheriv, createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { createCipheriv, createHmac, createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import EncodeUtils from "../libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../repository/credentials-memory-repository";
 import type {
@@ -52,6 +52,14 @@ export type PasskeyCredential = {
   readonly user: PublicKeyCredentialUserEntity | undefined;
 };
 
+export type HmacSecretMode = "none" | "hmac-secret" | "hmac-secret-mc";
+
+type HmacSecretExtension = { "hmac-secret": Uint8Array<ArrayBuffer> | boolean };
+type HmacSecretResult = { credRandom: Uint8Array<ArrayBuffer>; extension: HmacSecretExtension };
+
+const HMAC_SECRET_SALT_LENGTH = 32;
+const CRED_RANDOM_LENGTH = 32;
+
 export type AuthenticatorParameters = {
   readonly aaguid: Uint8Array<ArrayBuffer>;
   readonly transports: AuthenticatorTransport[];
@@ -68,6 +76,7 @@ export type AuthenticatorParameters = {
   ) => InteractionResponse | undefined;
   readonly credentialsRepository: PasskeysCredentialsRepository | undefined;
   readonly stateless: boolean;
+  readonly hmacSecret: HmacSecretMode;
 };
 
 export type MakeCredentialInteraction = (user: PublicKeyCredentialUserEntity, uv: boolean) => boolean;
@@ -95,6 +104,7 @@ export class AuthenticatorEmulator {
 
   private static readonly DEFAULT_CREDENTIALS_REPOSITORY = new PasskeysCredentialsMemoryRepository();
   private static readonly DEFAULT_STATELESS = false;
+  private static readonly DEFAULT_HMAC_SECRET: HmacSecretMode = "none";
   public params: AuthenticatorParameters;
 
   constructor(params: Partial<AuthenticatorParameters> = {}) {
@@ -114,6 +124,7 @@ export class AuthenticatorEmulator {
         ? undefined
         : (params.credentialsRepository ?? AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY),
       stateless: params.stateless ?? AuthenticatorEmulator.DEFAULT_STATELESS,
+      hmacSecret: params.hmacSecret ?? AuthenticatorEmulator.DEFAULT_HMAC_SECRET,
     };
   }
 
@@ -296,8 +307,17 @@ export class AuthenticatorEmulator {
 
   /** @see https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#authenticatorGetInfo */
   public authenticatorGetInfo(): AuthenticatorGetInfoResponse {
+    const extensions: string[] = [];
+    if (this.params.hmacSecret !== "none") {
+      extensions.push("hmac-secret");
+    }
+    if (this.params.hmacSecret === "hmac-secret-mc") {
+      extensions.push("hmac-secret-mc");
+    }
+
     return {
       versions: ["FIDO_2_0"],
+      extensions: extensions.length > 0 ? extensions : undefined,
       aaguid: this.params.aaguid,
       options: {
         rk: true,
@@ -333,6 +353,9 @@ export class AuthenticatorEmulator {
     if (!interactionResponse) throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_OPERATION_DENIED);
 
     // Create credential
+    const hmacSecret = request.extensions
+      ? makeCredentialHmacSecret(this.params.hmacSecret, request.extensions)
+      : undefined;
     const credential = makeCredential(
       this.params.aaguid,
       rpId,
@@ -341,6 +364,7 @@ export class AuthenticatorEmulator {
       interactionResponse,
       request.user,
       repository ? undefined : AuthenticatorEmulator.ENCRYPT_KEY,
+      hmacSecret,
     );
     if (repository) {
       const discoverableCredential: PasskeyDiscoverableCredential = {
@@ -379,6 +403,13 @@ export class AuthenticatorEmulator {
 
     // Get assertion
     const newSignCount = !repository ? 0 : credential.authenticatorData.signCount + this.params.signCounterIncrement;
+    const extension = request.extensions
+      ? getAssertionHmacSecret(
+          this.params.hmacSecret,
+          request.extensions,
+          credential.publicKeyCredentialSource.credRandom,
+        )
+      : undefined;
     const { authData, signature } = getAssertion(
       rpId.hash,
       request.clientDataHash,
@@ -386,6 +417,7 @@ export class AuthenticatorEmulator {
       credential.publicKeyCredentialSource,
       interactionResponse,
       !repository,
+      extension,
     );
 
     // Update sign count
@@ -418,11 +450,16 @@ function getCredentialsStateless(
 ): PasskeyCredential[] {
   return allowCredentials.map((descriptor) => {
     const id = EncodeUtils.bufferSourceToUint8Array(descriptor.id);
+    const { privateKey, credRandom } = EncodeUtils.decodeCbor<{
+      privateKey: Uint8Array<ArrayBuffer>;
+      credRandom?: Uint8Array<ArrayBuffer>;
+    }>(decryptBytes(key, id));
     const publicKeyCredentialSource: PublicKeyCredentialSource = {
       type: "public-key",
       id,
-      privateKey: decryptBytes(key, id),
+      privateKey,
       rpId: rpId,
+      credRandom,
     };
     const authData: AuthenticatorData = {
       rpIdHash: rpId.hash,
@@ -482,6 +519,7 @@ function getAssertion(
   credential: PublicKeyCredentialSource,
   interactionResponse: InteractionResponse,
   stateless: boolean,
+  extension: HmacSecretExtension | undefined,
 ): { authData: Uint8Array<ArrayBuffer>; signature: Uint8Array<ArrayBuffer> } {
   const authenticatorData = {
     rpIdHash,
@@ -491,9 +529,10 @@ function getAssertion(
       backupEligibility: !stateless,
       backupState: !stateless,
       attestedCredentialData: false,
-      extensionData: false,
+      extensionData: Boolean(extension),
     },
     signCount: newSignCounter,
+    extensions: extension,
   };
 
   const payload: number[] = [];
@@ -512,6 +551,54 @@ function getAssertion(
   return { authData: packAuthenticatorData(authenticatorData), signature };
 }
 
+function computeHmacSecrets(credRandom: Uint8Array<ArrayBuffer>, salts: unknown): Uint8Array<ArrayBuffer> {
+  if (
+    !(salts instanceof Uint8Array) ||
+    (salts.length !== HMAC_SECRET_SALT_LENGTH && salts.length !== 2 * HMAC_SECRET_SALT_LENGTH)
+  ) {
+    throw new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER);
+  }
+  const outputs = new Uint8Array(salts.length);
+  for (let offset = 0; offset < salts.length; offset += HMAC_SECRET_SALT_LENGTH) {
+    const salt = salts.subarray(offset, offset + HMAC_SECRET_SALT_LENGTH);
+    outputs.set(createHmac("sha256", credRandom).update(salt).digest(), offset);
+  }
+  return outputs;
+}
+
+function makeCredentialHmacSecret(mode: HmacSecretMode, extensions: object): HmacSecretResult | undefined {
+  const requested = extensions as Record<string, unknown>;
+  const enabled = requested["hmac-secret"] === true;
+  const salts = requested["hmac-secret-mc"];
+
+  if (!enabled || mode === "none") {
+    return undefined;
+  }
+
+  const credRandom = new Uint8Array(randomBytes(CRED_RANDOM_LENGTH));
+  if (salts === undefined || mode !== "hmac-secret-mc") {
+    return { credRandom, extension: { "hmac-secret": true } };
+  }
+  return { credRandom, extension: { "hmac-secret": computeHmacSecrets(credRandom, salts) } };
+}
+
+function getAssertionHmacSecret(
+  mode: HmacSecretMode,
+  extensions: object,
+  credRandom: Uint8Array<ArrayBuffer> | undefined,
+): HmacSecretExtension | undefined {
+  const requested = extensions as Record<string, unknown>;
+  const salts = requested["hmac-secret"];
+
+  if (salts === undefined || mode === "none") {
+    return undefined;
+  }
+  if (!credRandom) {
+    return undefined;
+  }
+  return { "hmac-secret": computeHmacSecrets(credRandom, salts) };
+}
+
 function makeCredential(
   aaguid: Uint8Array<ArrayBuffer>,
   rpId: RpId,
@@ -520,6 +607,7 @@ function makeCredential(
   interactionResponse: InteractionResponse,
   user: PublicKeyCredentialUserEntity | undefined,
   statelessKey: Uint8Array<ArrayBuffer> | undefined,
+  hmacSecret: HmacSecretResult | undefined,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -529,7 +617,12 @@ function makeCredential(
 
   const keyPair = generatekeyPair(alg);
   const privateKey = new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" }));
-  const credentialId = statelessKey ? encryptBytes(statelessKey, privateKey) : new Uint8Array(randomBytes(32));
+  const credentialId = statelessKey
+    ? encryptBytes(
+        statelessKey,
+        EncodeUtils.encodeCbor(hmacSecret ? { privateKey, credRandom: hmacSecret.credRandom } : { privateKey }),
+      )
+    : new Uint8Array(randomBytes(32));
 
   const publicKeyCredentialSource: PublicKeyCredentialSource = {
     type: "public-key",
@@ -537,6 +630,7 @@ function makeCredential(
     privateKey: new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" })),
     rpId: rpId,
     userHandle: user && !statelessKey ? EncodeUtils.bufferSourceToUint8Array(user.id) : undefined,
+    credRandom: hmacSecret?.credRandom,
   };
 
   const publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor = {
@@ -553,7 +647,7 @@ function makeCredential(
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
       attestedCredentialData: true,
-      extensionData: false,
+      extensionData: Boolean(hmacSecret),
     },
     signCount: 0,
     attestedCredentialData: {
@@ -561,6 +655,7 @@ function makeCredential(
       credentialId,
       credentialPublicKey: CoseKey.fromKeyObject(keyPair.publicKey),
     },
+    extensions: hmacSecret?.extension,
   };
   return {
     publicKeyCredentialDescriptor,
