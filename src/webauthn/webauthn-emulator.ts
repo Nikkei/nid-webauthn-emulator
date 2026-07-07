@@ -272,7 +272,9 @@ export class WebAuthnEmulator {
         throw new DOMException("prf.evalByCredential requires allowCredentials", "NotSupportedError");
       }
       let prfValues = prf.eval;
-      // We currently resolve evalByCredential only for a single requested credential.
+      // In real browsers the WebAuthn layer selects the credential before building the CTAP request, which
+      // resolves evalByCredential to that credential's salt. The NID emulator selects credentials in the
+      // CTAP layer, so we only handle a single allowed credential to avoid polluting the CTAP layer
       if (prf.evalByCredential && allowCredentials?.length === 1) {
         const credentialId = EncodeUtils.encodeBase64Url(allowCredentials[0].id);
         prfValues = prf.evalByCredential[credentialId] ?? prfValues;
