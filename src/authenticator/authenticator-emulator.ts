@@ -356,6 +356,7 @@ export class AuthenticatorEmulator {
     const hmacSecret = request.extensions
       ? makeCredentialHmacSecret(this.params.hmacSecret, request.extensions)
       : undefined;
+    const extensions: Record<string, unknown> = { ...hmacSecret?.extension };
     const credential = makeCredential(
       this.params.aaguid,
       rpId,
@@ -364,7 +365,8 @@ export class AuthenticatorEmulator {
       interactionResponse,
       request.user,
       repository ? undefined : AuthenticatorEmulator.ENCRYPT_KEY,
-      hmacSecret,
+      hmacSecret?.credRandom,
+      extensions,
     );
     if (repository) {
       const discoverableCredential: PasskeyDiscoverableCredential = {
@@ -403,13 +405,14 @@ export class AuthenticatorEmulator {
 
     // Get assertion
     const newSignCount = !repository ? 0 : credential.authenticatorData.signCount + this.params.signCounterIncrement;
-    const extension = request.extensions
+    const hmacSecret = request.extensions
       ? getAssertionHmacSecret(
           this.params.hmacSecret,
           request.extensions,
           credential.publicKeyCredentialSource.credRandom,
         )
       : undefined;
+    const extensions: Record<string, unknown> = { ...hmacSecret };
     const { authData, signature } = getAssertion(
       rpId.hash,
       request.clientDataHash,
@@ -417,7 +420,7 @@ export class AuthenticatorEmulator {
       credential.publicKeyCredentialSource,
       interactionResponse,
       !repository,
-      extension,
+      extensions,
     );
 
     // Update sign count
@@ -519,7 +522,7 @@ function getAssertion(
   credential: PublicKeyCredentialSource,
   interactionResponse: InteractionResponse,
   stateless: boolean,
-  extension: HmacSecretExtension | undefined,
+  extensions: object | undefined,
 ): { authData: Uint8Array<ArrayBuffer>; signature: Uint8Array<ArrayBuffer> } {
   const authenticatorData = {
     rpIdHash,
@@ -529,10 +532,10 @@ function getAssertion(
       backupEligibility: !stateless,
       backupState: !stateless,
       attestedCredentialData: false,
-      extensionData: Boolean(extension),
+      extensionData: Boolean(extensions),
     },
     signCount: newSignCounter,
-    extensions: extension,
+    extensions,
   };
 
   const payload: number[] = [];
@@ -607,7 +610,8 @@ function makeCredential(
   interactionResponse: InteractionResponse,
   user: PublicKeyCredentialUserEntity | undefined,
   statelessKey: Uint8Array<ArrayBuffer> | undefined,
-  hmacSecret: HmacSecretResult | undefined,
+  credRandom: Uint8Array<ArrayBuffer> | undefined,
+  extensions: object | undefined,
 ): PasskeyCredential {
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -618,10 +622,7 @@ function makeCredential(
   const keyPair = generatekeyPair(alg);
   const privateKey = new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" }));
   const credentialId = statelessKey
-    ? encryptBytes(
-        statelessKey,
-        EncodeUtils.encodeCbor(hmacSecret ? { privateKey, credRandom: hmacSecret.credRandom } : { privateKey }),
-      )
+    ? encryptBytes(statelessKey, EncodeUtils.encodeCbor(credRandom ? { privateKey, credRandom } : { privateKey }))
     : new Uint8Array(randomBytes(32));
 
   const publicKeyCredentialSource: PublicKeyCredentialSource = {
@@ -630,7 +631,7 @@ function makeCredential(
     privateKey: new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" })),
     rpId: rpId,
     userHandle: user && !statelessKey ? EncodeUtils.bufferSourceToUint8Array(user.id) : undefined,
-    credRandom: hmacSecret?.credRandom,
+    credRandom,
   };
 
   const publicKeyCredentialDescriptor: PublicKeyCredentialDescriptor = {
@@ -647,7 +648,7 @@ function makeCredential(
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
       attestedCredentialData: true,
-      extensionData: Boolean(hmacSecret),
+      extensionData: Boolean(extensions),
     },
     signCount: 0,
     attestedCredentialData: {
@@ -655,7 +656,7 @@ function makeCredential(
       credentialId,
       credentialPublicKey: CoseKey.fromKeyObject(keyPair.publicKey),
     },
-    extensions: hmacSecret?.extension,
+    extensions,
   };
   return {
     publicKeyCredentialDescriptor,

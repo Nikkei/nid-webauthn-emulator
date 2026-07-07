@@ -98,7 +98,8 @@ export function packAttestationObject(attestationObject: AttestationObject): Uin
 export function packAuthenticatorData(authData: AuthenticatorData): Uint8Array<ArrayBuffer> {
   const ret: Array<number> = [];
   const cred = authData.attestedCredentialData;
-  const extensions = authData.extensions;
+  const extensions =
+    authData.extensions && Object.keys(authData.extensions).length > 0 ? authData.extensions : undefined;
   ret.push(...authData.rpIdHash);
   ret.push(
     packAuthenticatorDataFlags({

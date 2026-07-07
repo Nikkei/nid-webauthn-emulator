@@ -265,7 +265,7 @@ export class WebAuthnEmulator {
     };
 
     const prf = options.publicKey.extensions?.prf;
-    let requestExtensions: object | undefined;
+    const requestExtensions: Record<string, unknown> = {};
     if (prf && (prf.eval || prf.evalByCredential)) {
       const allowCredentials = options.publicKey.allowCredentials;
       if (prf.evalByCredential && !allowCredentials?.length) {
@@ -278,7 +278,7 @@ export class WebAuthnEmulator {
         prfValues = prf.evalByCredential[credentialId] ?? prfValues;
       }
       if (prfValues) {
-        requestExtensions = { "hmac-secret": prfValuesToSalts(prfValues) };
+        requestExtensions["hmac-secret"] = prfValuesToSalts(prfValues);
       }
     }
 
@@ -352,11 +352,12 @@ export class WebAuthnEmulator {
     const clientDataJSON = JSON.stringify(clientData);
 
     const prf = options.publicKey.extensions?.prf;
-    let requestExtensions: object | undefined;
+    const requestExtensions: Record<string, unknown> = {};
     if (prf) {
-      requestExtensions = prf.eval
-        ? { "hmac-secret": true, "hmac-secret-mc": prfValuesToSalts(prf.eval) }
-        : { "hmac-secret": true };
+      requestExtensions["hmac-secret"] = true;
+      if (prf.eval) {
+        requestExtensions["hmac-secret-mc"] = prfValuesToSalts(prf.eval);
+      }
     }
 
     const authenticatorRequest = packMakeCredentialRequest({
