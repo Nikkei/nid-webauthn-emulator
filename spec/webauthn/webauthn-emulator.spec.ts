@@ -1025,4 +1025,59 @@ describe("WebAuthnEmulator PRF extension", () => {
     await testServer.getAuthenticationVerification(assertion.toJSON());
     assert.deepEqual(prfResults(assertion), createResults);
   });
+
+  test("createJSON and getJSON round-trip PRF eval", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const createOptions: PublicKeyCredentialCreationOptionsJSON = {
+      rp: { id: rpId, name: rpId },
+      user: { id: EncodeUtils.encodeBase64Url(user.id), name: user.name, displayName: user.displayName },
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      pubKeyCredParams,
+      extensions: {
+        prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA), second: EncodeUtils.encodeBase64Url(inputB) } },
+      },
+    };
+    const credential = emulator.createJSON(rpOrigin, createOptions);
+    const createResults = credential.clientExtensionResults.prf?.results;
+    assert.ok(createResults);
+    assert.ok(createResults.first);
+    assert.ok(createResults.second);
+
+    const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+      rpId,
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      allowCredentials: [{ type: "public-key", id: credential.id }],
+      extensions: {
+        prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA), second: EncodeUtils.encodeBase64Url(inputB) } },
+      },
+    };
+    const assertion = emulator.getJSON(rpOrigin, requestOptions);
+    assert.deepEqual(assertion.clientExtensionResults.prf?.results, createResults);
+  });
+
+  test("createJSON and getJSON round-trip PRF evalByCredential", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const createOptions: PublicKeyCredentialCreationOptionsJSON = {
+      rp: { id: rpId, name: rpId },
+      user: { id: EncodeUtils.encodeBase64Url(user.id), name: user.name, displayName: user.displayName },
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      pubKeyCredParams,
+      extensions: { prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA) } } },
+    };
+    const credential = emulator.createJSON(rpOrigin, createOptions);
+    const createResults = credential.clientExtensionResults.prf?.results;
+    assert.ok(createResults);
+    const credentialIdB64 = credential.id;
+
+    const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+      rpId,
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      allowCredentials: [{ type: "public-key", id: credentialIdB64 }],
+      extensions: {
+        prf: { evalByCredential: { [credentialIdB64]: { first: EncodeUtils.encodeBase64Url(inputA) } } },
+      },
+    };
+    const assertion = emulator.getJSON(rpOrigin, requestOptions);
+    assert.deepEqual(assertion.clientExtensionResults.prf?.results, createResults);
+  });
 });
