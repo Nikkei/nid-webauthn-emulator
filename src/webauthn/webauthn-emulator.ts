@@ -44,6 +44,9 @@ export type AuthenticatorInfo = {
   };
 };
 
+const PRF_OUTPUT_LENGTH = 32;
+const PRF_SALT_PREFIX = EncodeUtils.strToUint8Array("WebAuthn PRF");
+
 export class WebAuthnEmulatorError extends Error {}
 
 /**
@@ -261,12 +264,31 @@ export class WebAuthnEmulator {
       crossOrigin: false,
     };
 
+    const prf = options.publicKey.extensions?.prf;
+    let requestExtensions: object | undefined;
+    if (prf && (prf.eval || prf.evalByCredential)) {
+      const allowCredentials = options.publicKey.allowCredentials;
+      if (prf.evalByCredential && !allowCredentials?.length) {
+        throw new DOMException("prf.evalByCredential requires allowCredentials", "NotSupportedError");
+      }
+      let prfValues = prf.eval;
+      // We currently resolve evalByCredential only for a single requested credential.
+      if (prf.evalByCredential && allowCredentials?.length === 1) {
+        const credentialId = EncodeUtils.encodeBase64Url(allowCredentials[0].id);
+        prfValues = prf.evalByCredential[credentialId] ?? prfValues;
+      }
+      if (prfValues) {
+        requestExtensions = { "hmac-secret": prfValuesToSalts(prfValues) };
+      }
+    }
+
     const authenticatorRequest = packGetAssertionRequest({
       rpId: rpId.value,
       clientDataHash: EncodeUtils.bufferSourceToUint8Array(
         new Uint8Array(createHash("sha256").update(JSON.stringify(clientData)).digest()),
       ),
       allowList: options.publicKey.allowCredentials,
+      extensions: requestExtensions,
       options: toFido2RequestOptions(options.publicKey.userVerification),
     });
     const authenticatorResponse = this.handleAuthenticatorCall(() =>
@@ -285,14 +307,24 @@ export class WebAuthnEmulator {
       rawId: rawId.buffer,
       response: {
         clientDataJSON: EncodeUtils.strToUint8Array(JSON.stringify(clientData)).buffer,
-        authenticatorData: packAuthenticatorData(authData).buffer,
+        authenticatorData: authenticatorResponse.authData.buffer,
         signature: authenticatorResponse.signature.buffer,
         userHandle: authenticatorResponse.user
           ? EncodeUtils.bufferSourceToUint8Array(authenticatorResponse.user.id).buffer
           : null,
       },
       authenticatorAttachment: null,
-      getClientExtensionResults: () => ({ credProps: { rk: authenticatorResponse.user !== undefined } }),
+      getClientExtensionResults: () => {
+        const results: AuthenticationExtensionsClientOutputs = {
+          credProps: { rk: authenticatorResponse.user !== undefined },
+        };
+        const extensions = authData.extensions as { "hmac-secret"?: Uint8Array<ArrayBuffer> | boolean } | undefined;
+        const hmacOutput = extensions?.["hmac-secret"];
+        if (hmacOutput instanceof Uint8Array) {
+          results.prf = { results: hmacSecretToPrfResults(hmacOutput) };
+        }
+        return results;
+      },
       toJSON: () => toAuthenticationResponseJSON(publicKeyCredential),
     };
 
@@ -319,6 +351,14 @@ export class WebAuthnEmulator {
     };
     const clientDataJSON = JSON.stringify(clientData);
 
+    const prf = options.publicKey.extensions?.prf;
+    let requestExtensions: object | undefined;
+    if (prf) {
+      requestExtensions = prf.eval
+        ? { "hmac-secret": true, "hmac-secret-mc": prfValuesToSalts(prf.eval) }
+        : { "hmac-secret": true };
+    }
+
     const authenticatorRequest = packMakeCredentialRequest({
       clientDataHash: EncodeUtils.bufferSourceToUint8Array(
         new Uint8Array(createHash("sha256").update(clientDataJSON).digest()),
@@ -327,6 +367,7 @@ export class WebAuthnEmulator {
       user: options.publicKey.user,
       pubKeyCredParams: options.publicKey.pubKeyCredParams,
       excludeList: options.publicKey.excludeCredentials,
+      extensions: requestExtensions,
       options: toFido2CreateOptions(options.publicKey.authenticatorSelection),
     });
     const authenticatorResponse = this.handleAuthenticatorCall(() =>
@@ -358,10 +399,57 @@ export class WebAuthnEmulator {
       rawId: attestedCredentialData.credentialId.buffer,
       response,
       authenticatorAttachment: null,
-      getClientExtensionResults: () => ({ credProps: { rk: true } }),
+      getClientExtensionResults: () => {
+        const results: AuthenticationExtensionsClientOutputs = { credProps: { rk: true } };
+        if (prf) {
+          const extensions = authData.extensions as { "hmac-secret"?: Uint8Array<ArrayBuffer> | boolean } | undefined;
+          const hmacOutput = extensions?.["hmac-secret"];
+          if (hmacOutput instanceof Uint8Array) {
+            results.prf = { enabled: true, results: hmacSecretToPrfResults(hmacOutput) };
+          } else {
+            results.prf = { enabled: hmacOutput === true };
+          }
+        }
+        return results;
+      },
       toJSON: () => toRegistrationResponseJSON(publicKeyCredential),
     };
 
     return publicKeyCredential;
   }
+}
+
+// A PRF input maps to a CTAP hmac-secret salt as SHA-256("WebAuthn PRF" || 0x00 || input).
+function prfInputToSalt(input: BufferSource): Uint8Array<ArrayBuffer> {
+  const inputBytes = EncodeUtils.bufferSourceToUint8Array(input);
+  if (inputBytes.length === 0) {
+    throw new TypeError("PRF eval input must not be empty");
+  }
+  const data = new Uint8Array(PRF_SALT_PREFIX.length + 1 + inputBytes.length);
+  data.set(PRF_SALT_PREFIX, 0);
+  data.set(inputBytes, PRF_SALT_PREFIX.length + 1);
+  return new Uint8Array(createHash("sha256").update(data).digest());
+}
+
+function prfValuesToSalts(values: AuthenticationExtensionsPRFValues): Uint8Array<ArrayBuffer> {
+  const first = prfInputToSalt(values.first);
+  let salts = first;
+
+  if (values.second) {
+    const second = prfInputToSalt(values.second);
+    salts = new Uint8Array(first.length + second.length);
+    salts.set(first, 0);
+    salts.set(second, first.length);
+  }
+  return salts;
+}
+
+function hmacSecretToPrfResults(output: Uint8Array<ArrayBuffer>): AuthenticationExtensionsPRFValues {
+  if (output.length === PRF_OUTPUT_LENGTH) {
+    return { first: output.slice(0, PRF_OUTPUT_LENGTH).buffer };
+  }
+  return {
+    first: output.slice(0, PRF_OUTPUT_LENGTH).buffer,
+    second: output.slice(PRF_OUTPUT_LENGTH, 2 * PRF_OUTPUT_LENGTH).buffer,
+  };
 }
