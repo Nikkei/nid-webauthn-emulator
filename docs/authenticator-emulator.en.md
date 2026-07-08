@@ -13,15 +13,12 @@ A class that emulates the main functionality of an Authenticator based on the CT
 #### Key Methods
 
 1. `command(request: CTAPAuthenticatorRequest): CTAPAuthenticatorResponse`
-
    - Receives CTAP commands and returns appropriate responses.
 
 2. `authenticatorGetInfo(): AuthenticatorGetInfoResponse`
-
    - Returns information about the Authenticator.
 
 3. `authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse`
-
    - Creates new credentials.
 
 4. `authenticatorGetAssertion(request: AuthenticatorGetAssertionRequest): AuthenticatorGetAssertionResponse`
@@ -41,6 +38,16 @@ A class that emulates the main functionality of an Authenticator based on the CT
 
 6. **Stateless Mode**: Processes each command independently without maintaining Authenticator state.
 
+## HMAC Secret Extension
+
+The emulator implements the CTAP2 `hmac-secret` extension, which backs the WebAuthn PRF extension. It is selected with the `hmacSecret` parameter and defaults to `"none"`:
+
+- **`"none"`**: the extension is neither advertised by `authenticatorGetInfo` nor processed.
+- **`"hmac-secret"`**: advertised by `authenticatorGetInfo`. At `authenticatorMakeCredential` the authenticator generates a 32-byte secret (`CredRandom`) and stores it with the credential. At `authenticatorGetAssertion` it returns `HMAC-SHA-256(CredRandom, salt)` for each requested salt (32 byte input for one salt, 64 for two).
+- **`"hmac-secret-mc"`**: additionally advertises `hmac-secret-mc` and evaluates salts supplied at `authenticatorMakeCredential` (CTAP 2.2) in additional to `authenticatorGetAssertion`.
+
+`CredRandom` is persisted with the credential so that assertions reproduce the same outputs for the same salts across emulator instances.
+
 ## Security Considerations
 
 - Exclude list and allow list processing: Performs appropriate credential filtering during credential creation and authentication.
@@ -56,7 +63,7 @@ Uses the `AuthenticationEmulatorError` class to return error codes based on the 
 
 2. Actual implementations may require more stringent security checks and production-appropriate settings.
 
-3. This emulator covers the basic functionality of the FIDO2/WebAuthn specification, but does not support all advanced features or extensions.
+3. This emulator covers the basic functionality of the FIDO2/WebAuthn specification, including the the `hmac-secret` extension (see [HMAC Secret Extension](#hmac-secret-extension)). It does not support all advanced features or extensions.
 
 ## Customization
 
@@ -70,6 +77,7 @@ Using `AuthenticatorParameters`, you can customize the following items:
 - User interaction simulation
 - Credential storage method
 - Stateless mode activation
+- HMAC secret extension mode
 
 ## Usage Example
 

@@ -63,10 +63,13 @@ const authenticator = new AuthenticatorEmulator({
     userPresent: false,
   },
   signCounterIncrement: 0,
+  hmacSecret: "hmac-secret-mc",
 });
 
 const webAuthnEmulator = new WebAuthnEmulator(authenticator);
 ```
+
+The `hmacSecret` option controls the CTAP2 extension that backs the WebAuthn [PRF extension](https://www.w3.org/TR/webauthn-3/#prf-extension). Use `"hmac-secret"` to evaluate at authentication, `"hmac-secret-mc"` (CTAP 2.2) to also evaluate at registration, or `"none"` to disable (default).
 
 `AuthenticatorEmulator` implements the following commands from the FIDO2/CTAP specification:
 
