@@ -217,7 +217,7 @@ function parsePRFInputsFromJSON(prf: AuthenticationExtensionsPRFInputsJSON): Aut
 }
 
 // Decodes each supported extension's JSON-encoded inputs into their non-json form.
-// Only prf is decoding today, future extension with encoded inputs should add code here
+// Only prf needs decoding today; a future extension with encoded inputs should add code here.
 function parseExtensionsFromJSON(
   extensionsJSON: AuthenticationExtensionsClientInputsJSON | undefined,
 ): AuthenticationExtensionsClientInputs | undefined {
@@ -240,7 +240,7 @@ function toPRFValuesJSON(values: AuthenticationExtensionsPRFValues): Authenticat
 }
 
 // Encodes each supported extension's outputs into their json form.
-// Only prf is encoding today, future extension with encoded outputs should add code here
+// Only prf needs encoding today; a future extension with encoded outputs should add code here.
 function toExtensionResultsJSON(
   results: AuthenticationExtensionsClientOutputs,
 ): AuthenticationExtensionsClientOutputsJSON {
