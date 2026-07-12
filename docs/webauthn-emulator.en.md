@@ -66,8 +66,8 @@ const {first, second} = credential.getClientExtensionResults().prf!.results;
 The `hmacSecret` option passed to the `AuthenticatorEmulator` controls when `getClientExtensionResults().prf` contains resulting keys:
 
 - **`"none"`**: (default) the PRF extension is disabled and returns no keys.
-- **`"hmac-secret"`**: `create` sets `prf.enabled` to `true` but returns no results keys. `get` returns keys in `prf.results`.
-- **`"hmac-secret-mc"`**: `create` sets `prf.enabled` to `true` and returns keys in `prf.results`. `get` returns keys in `prf.results`.
+- **`"hmac-secret"`**: `create` sets `prf.enabled` to `true` but returns no extension `prf.results`. `get` returns keys in extension `prf.results`.
+- **`"hmac-secret-mc"`**: `create` sets `prf.enabled` to `true` and returns keys in extension `prf.results`. `get` returns keys in extension `prf.results`.
 
 The JSON variants `createJSON` and `getJSON` take the same inputs as base64url strings and return `prf.results` as base64url strings.
 

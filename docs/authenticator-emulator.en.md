@@ -44,7 +44,7 @@ The emulator implements the CTAP2 `hmac-secret` extension, which backs the WebAu
 
 - **`"none"`**: the extension is neither advertised by `authenticatorGetInfo` nor processed.
 - **`"hmac-secret"`**: advertised by `authenticatorGetInfo`. At `authenticatorMakeCredential` the authenticator generates a 32-byte secret (`CredRandom`) and stores it with the credential. At `authenticatorGetAssertion` it returns `HMAC-SHA-256(CredRandom, salt)` for each requested salt (32 byte input for one salt, 64 for two).
-- **`"hmac-secret-mc"`**: additionally advertises `hmac-secret-mc` and evaluates salts supplied at `authenticatorMakeCredential` (CTAP 2.2) in additional to `authenticatorGetAssertion`.
+- **`"hmac-secret-mc"`**: additionally advertises `hmac-secret-mc` and evaluates salts supplied at `authenticatorMakeCredential` (CTAP 2.2) in addition to `authenticatorGetAssertion`.
 
 `CredRandom` is persisted with the credential so that assertions reproduce the same outputs for the same salts across emulator instances.
 
@@ -63,7 +63,7 @@ Uses the `AuthenticationEmulatorError` class to return error codes based on the 
 
 2. Actual implementations may require more stringent security checks and production-appropriate settings.
 
-3. This emulator covers the basic functionality of the FIDO2/WebAuthn specification, including the the `hmac-secret` extension (see [HMAC Secret Extension](#hmac-secret-extension)). It does not support all advanced features or extensions.
+3. This emulator covers the basic functionality of the FIDO2/WebAuthn specification, including the `hmac-secret` extension (see [HMAC Secret Extension](#hmac-secret-extension)). It does not support all advanced features or extensions.
 
 ## Customization
 
