@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import { AuthenticatorEmulator } from "../../src/authenticator/authenticator-emulator";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { WebAuthnEmulator } from "../../src/webauthn/webauthn-emulator";
 import {
@@ -31,40 +32,84 @@ describe("WebAuthn JSON Model Test", () => {
     userVerification: "required",
   };
 
+  const creationOptionPrf: PublicKeyCredentialCreationOptions = {
+    ...creationOption,
+    extensions: {
+      prf: {
+        eval: {
+          first: EncodeUtils.strToUint8Array("prf-eval-first"),
+          second: EncodeUtils.strToUint8Array("prf-eval-second"),
+        },
+      },
+    },
+  };
+
+  const requestOptionPrf: PublicKeyCredentialRequestOptions = {
+    ...requestOption,
+    extensions: {
+      prf: {
+        eval: {
+          first: EncodeUtils.strToUint8Array("prf-eval-first"),
+          second: EncodeUtils.strToUint8Array("prf-eval-second"),
+        },
+      },
+    },
+  };
+
   test("Create Option JSON Serialize Deserialize test", async () => {
-    const json = toCreationOptionsJSON(creationOption);
-    const model = parseCreationOptionsFromJSON(json);
-    const reJson = toCreationOptionsJSON(model);
-    assert.deepEqual(reJson, json);
+    for (const option of [creationOption, creationOptionPrf]) {
+      const json = toCreationOptionsJSON(option);
+      const model = parseCreationOptionsFromJSON(json);
+      const reJson = toCreationOptionsJSON(model);
+      assert.deepEqual(reJson, json);
+    }
   });
 
   test("Create Response JSON Serialize Deserialize test", async () => {
-    const emulator = new WebAuthnEmulator();
-    const response = emulator.create("https://test-rp.org", { publicKey: creationOption });
-
-    const json = toRegistrationResponseJSON(response);
-    const model = parseRegistrationResponseFromJSON(json);
-    const reJson = toRegistrationResponseJSON(model);
-    assert.deepEqual(reJson, json);
+    const cases = [
+      { emulator: new WebAuthnEmulator(), option: creationOption },
+      {
+        emulator: new WebAuthnEmulator(new AuthenticatorEmulator({ hmacSecret: "hmac-secret-mc" })),
+        option: creationOptionPrf,
+      },
+    ];
+    for (const { emulator, option } of cases) {
+      const response = emulator.create("https://test-rp.org", { publicKey: option });
+      const json = toRegistrationResponseJSON(response);
+      const model = parseRegistrationResponseFromJSON(json);
+      const reJson = toRegistrationResponseJSON(model);
+      assert.deepEqual(reJson, json);
+    }
   });
 
   test("Get Option JSON Serialize Deserialize test", async () => {
-    const json = toRequestOptionsJSON(requestOption);
-    const model = parseRequestOptionsFromJSON(json);
-    const reJson = toRequestOptionsJSON(model);
-    assert.deepEqual(reJson, json);
+    for (const option of [requestOption, requestOptionPrf]) {
+      const json = toRequestOptionsJSON(option);
+      const model = parseRequestOptionsFromJSON(json);
+      const reJson = toRequestOptionsJSON(model);
+      assert.deepEqual(reJson, json);
+    }
   });
 
   test("Get Response JSON Serialize Deserialize test", async () => {
-    const emulator = new WebAuthnEmulator();
-    emulator.create("https://test-rp.org", { publicKey: creationOption });
-    const response = emulator.get("https://test-rp.org", {
-      publicKey: { ...requestOption, allowCredentials: undefined },
-    });
-    const json = toAuthenticationResponseJSON(response);
-    const model = parseAuthenticationResponseFromJSON(json);
-    const reJson = toAuthenticationResponseJSON(model);
-    assert.deepEqual(reJson, json);
+    const cases = [
+      { emulator: new WebAuthnEmulator(), createOption: creationOption, getOption: requestOption },
+      {
+        emulator: new WebAuthnEmulator(new AuthenticatorEmulator({ hmacSecret: "hmac-secret-mc" })),
+        createOption: creationOptionPrf,
+        getOption: requestOptionPrf,
+      },
+    ];
+    for (const { emulator, createOption, getOption } of cases) {
+      emulator.create("https://test-rp.org", { publicKey: createOption });
+      const response = emulator.get("https://test-rp.org", {
+        publicKey: { ...getOption, allowCredentials: undefined },
+      });
+      const json = toAuthenticationResponseJSON(response);
+      const model = parseAuthenticationResponseFromJSON(json);
+      const reJson = toAuthenticationResponseJSON(model);
+      assert.deepEqual(reJson, json);
+    }
   });
 
   test("Create Response JSON optional test", async () => {
