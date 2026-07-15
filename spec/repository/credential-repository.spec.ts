@@ -83,4 +83,25 @@ describe("Credential Repository Test", () => {
       fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
     }
   });
+
+  test("File Repository save after delete race", async () => {
+    const deserialized = deserializeCredential(JSON.stringify(testCredentialJSON));
+    const TEST_CREDENTIALS_DIR = path.join(__dirname, "test-credentials-resave");
+    try {
+      fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
+      const repository = new PasskeysCredentialsFileRepository(TEST_CREDENTIALS_DIR);
+
+      // Validates that a delete does not clobber a follow-on write
+      repository.saveCredential(deserialized);
+      repository.deleteCredential(deserialized);
+      repository.saveCredential(deserialized);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const loaded = repository.loadCredentials();
+      assert.deepEqual(loaded.length, 1);
+      assert.deepEqual(loaded[0], deserialized);
+    } finally {
+      fs.rmSync(TEST_CREDENTIALS_DIR, { recursive: true, force: true });
+    }
+  });
 });

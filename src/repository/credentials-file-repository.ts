@@ -26,7 +26,8 @@ export class PasskeysCredentialsFileRepository implements PasskeysCredentialsRep
   deleteCredential(credential: PasskeyDiscoverableCredential): void {
     const id = getRepositoryId(credential);
     const filename = path.join(this.credentialsDir, `${id}.json`);
-    fs.unlink(filename, () => {});
+    // synchronous rm to avoid a race with future re-saves
+    fs.rmSync(filename, { force: true });
   }
   loadCredentials(): PasskeyDiscoverableCredential[] {
     const files = fs.readdirSync(this.credentialsDir);
