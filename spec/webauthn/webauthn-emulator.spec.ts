@@ -939,7 +939,7 @@ describe("WebAuthnEmulator PRF extension", () => {
     assert.deepEqual(prfResults(assertion), createResults);
   });
 
-  test("evalByCredential returns each credential's result and nothing on a mismatch", () => {
+  test("evalByCredential returns each credential's result", () => {
     const emulator = prfEmulator("hmac-secret-mc");
     const userA = { id: EncodeUtils.strToUint8Array("prf-user-a"), name: "a", displayName: "A" };
     const userB = { id: EncodeUtils.strToUint8Array("prf-user-b"), name: "b", displayName: "B" };
@@ -959,15 +959,6 @@ describe("WebAuthnEmulator PRF extension", () => {
     });
     assert.deepEqual(prfResults(assertedA), resultsA);
     assert.deepEqual(prfResults(assertedB), resultsB);
-
-    const mismatchedA = assertCredential(emulator, credentialA.rawId, {
-      prf: { evalByCredential: { [idBB64]: { first: inputB } } },
-    });
-    const mismatchedB = assertCredential(emulator, credentialB.rawId, {
-      prf: { evalByCredential: { [idAB64]: { first: inputA } } },
-    });
-    assert.equal(mismatchedA.getClientExtensionResults().prf, undefined);
-    assert.equal(mismatchedB.getClientExtensionResults().prf, undefined);
   });
 
   test("evalByCredential without allowCredentials throws NotSupportedError", () => {
@@ -978,6 +969,34 @@ describe("WebAuthnEmulator PRF extension", () => {
           publicKey: { rpId, challenge, extensions: { prf: { evalByCredential: { AAAA: { first: inputA } } } } },
         }),
       { name: "NotSupportedError" },
+    );
+  });
+
+  test("evalByCredential during creation throws NotSupportedError", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    assert.throws(() => createCredential(emulator, { prf: { evalByCredential: { AAAA: { first: inputA } } } }), {
+      name: "NotSupportedError",
+    });
+  });
+
+  test("evalByCredential with a key not in allowCredentials throws SyntaxError", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const credential = createCredential(emulator, { prf: { eval: { first: inputA } } });
+    const foreignKey = EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("not-a-listed-credential"));
+    for (const badKey of ["", "!not base64!", foreignKey]) {
+      assert.throws(
+        () =>
+          assertCredential(emulator, credential.rawId, { prf: { evalByCredential: { [badKey]: { first: inputA } } } }),
+        { name: "SyntaxError" },
+      );
+    }
+  });
+
+  test("empty evalByCredential does not require allowCredentials", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    createCredential(emulator, { prf: { eval: { first: inputA } } });
+    assert.doesNotThrow(() =>
+      emulator.get(rpOrigin, { publicKey: { rpId, challenge, extensions: { prf: { evalByCredential: {} } } } }),
     );
   });
 

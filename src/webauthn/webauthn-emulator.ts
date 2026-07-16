@@ -266,10 +266,22 @@ export class WebAuthnEmulator {
 
     const prf = options.publicKey.extensions?.prf;
     const requestExtensions: Record<string, unknown> = {};
-    if (prf && (prf.eval || prf.evalByCredential)) {
+    if (prf) {
       const allowCredentials = options.publicKey.allowCredentials;
-      if (prf.evalByCredential && !allowCredentials?.length) {
-        throw new DOMException("prf.evalByCredential requires allowCredentials", "NotSupportedError");
+      const evalByCredentialKeys = prf.evalByCredential ? Object.keys(prf.evalByCredential) : [];
+      if (evalByCredentialKeys.length > 0) {
+        if (!allowCredentials?.length) {
+          throw new DOMException("prf.evalByCredential requires allowCredentials", "NotSupportedError");
+        }
+        const allowedIds = new Set(allowCredentials.map((credential) => EncodeUtils.encodeBase64Url(credential.id)));
+        for (const key of evalByCredentialKeys) {
+          if (!allowedIds.has(key)) {
+            throw new DOMException(
+              "prf.evalByCredential contains a credential id not in allowCredentials",
+              "SyntaxError",
+            );
+          }
+        }
       }
       let prfValues = prf.eval;
       // In real browsers the WebAuthn layer selects the credential before building the CTAP request, which
@@ -354,6 +366,9 @@ export class WebAuthnEmulator {
     const clientDataJSON = JSON.stringify(clientData);
 
     const prf = options.publicKey.extensions?.prf;
+    if (prf?.evalByCredential !== undefined) {
+      throw new DOMException("prf.evalByCredential is not supported during credential creation", "NotSupportedError");
+    }
     const requestExtensions: Record<string, unknown> = {};
     if (prf) {
       requestExtensions["hmac-secret"] = true;
