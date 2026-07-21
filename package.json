@@ -18,8 +18,8 @@
   },
   "scripts": {
     "check": "biome check .",
-    "test": "node --test --test-concurrency=4 --require ts-node/register \"spec/**/*.spec.ts\"",
-    "test:webauthn-io": "RUN_WEBAUTHN_IO=1 node --test --require ts-node/register --test-name-pattern \"Registration Ceremony and Authentication Ceremony\" spec/integration/integration.spec.ts",
+    "test": "pnpm build && node --test --test-concurrency=4 \"dist/spec/**/*.spec.js\"",
+    "test:webauthn-io": "pnpm build && RUN_WEBAUTHN_IO=1 node --test --test-name-pattern \"Registration Ceremony and Authentication Ceremony\" dist/spec/integration/integration.spec.js",
     "build": "tsc"
   },
   "main": "dist/src/index.js",
@@ -29,7 +29,6 @@
     "@simplewebauthn/server": "13.3.2",
     "@tsconfig/recommended": "1.0.13",
     "@types/node": "26.1.1",
-    "ts-node": "10.9.2",
     "typescript": "7.0.2"
   },
   "dependencies": {
