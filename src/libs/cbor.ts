@@ -107,6 +107,11 @@ class CborReader {
     return value;
   }
 
+  readWithRemainder(): { value: unknown; remainder: Uint8Array<ArrayBuffer> } {
+    const value = this.readValue();
+    return { value, remainder: this.data.slice(this.offset) };
+  }
+
   private readValue(): unknown {
     const initialByte = this.readByte();
     const majorType = initialByte >> 5;
@@ -214,4 +219,12 @@ class CborReader {
 
 export function decodeCbor<T>(data: Uint8Array<ArrayBuffer>): T {
   return new CborReader(data).read() as T;
+}
+
+export function decodeCborWithRemainder<T>(data: Uint8Array<ArrayBuffer>): {
+  value: T;
+  remainder: Uint8Array<ArrayBuffer>;
+} {
+  const { value, remainder } = new CborReader(data).readWithRemainder();
+  return { value: value as T, remainder };
 }

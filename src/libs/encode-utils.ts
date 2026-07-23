@@ -1,4 +1,4 @@
-import { decodeCbor, encodeCbor } from "./cbor";
+import { decodeCbor, decodeCborWithRemainder, encodeCbor } from "./cbor";
 
 function encodeBase64Url(data: BufferSource): string {
   const buffer = bufferSourceToUint8Array(data);
@@ -36,5 +36,6 @@ const EncodeUtils = {
   decodeBase64Url,
   encodeCbor,
   decodeCbor,
+  decodeCborWithRemainder,
 };
 export default EncodeUtils;

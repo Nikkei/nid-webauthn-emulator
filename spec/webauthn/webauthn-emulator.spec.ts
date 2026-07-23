@@ -1,19 +1,26 @@
-import assert from "node:assert/strict";
+import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, test } from "node:test";
 import WebAuthnEmulator, {
   AuthenticationEmulatorError,
   AuthenticatorEmulator,
+  type CreatePublicKeyCredential,
   CTAP_COMMAND,
   CTAP_STATUS_CODE,
   type CTAPAuthenticatorRequest,
   type CTAPAuthenticatorResponse,
   type PasskeysCredentialsRepository,
   packCredentialManagementResponse,
+  parseCreationOptionsFromJSON,
   parseRequestOptionsFromJSON,
+  type RequestPublicKeyCredential,
   toPublicKeyCredentialDescriptorJSON,
   unpackAuthenticatorData,
 } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
+import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
 
@@ -796,5 +803,300 @@ describe("handleAuthenticatorCall other error path", () => {
       assert.ok(e instanceof Error);
       assert.equal((e as Error).message, "Non-CTAP failure");
     }
+  });
+});
+
+describe("WebAuthnEmulator PRF extension", () => {
+  const rpOrigin = "https://test-rp.org";
+  const rpId = "test-rp.org";
+  const user = { id: EncodeUtils.strToUint8Array("prf-user"), name: "user", displayName: "User" };
+  const challenge = EncodeUtils.strToUint8Array("prf-challenge");
+  const pubKeyCredParams = [{ type: "public-key" as const, alg: -7 }];
+  const inputA = EncodeUtils.strToUint8Array("prf-input-a");
+  const inputB = EncodeUtils.strToUint8Array("prf-input-b");
+
+  function prfEmulator(
+    hmacSecret: "none" | "hmac-secret" | "hmac-secret-mc",
+    repository?: PasskeysCredentialsRepository,
+  ): WebAuthnEmulator {
+    const credentialsRepository = repository ?? new PasskeysCredentialsMemoryRepository();
+    return new WebAuthnEmulator(new AuthenticatorEmulator({ hmacSecret, credentialsRepository }));
+  }
+
+  function createCredential(
+    emulator: WebAuthnEmulator,
+    extensions: AuthenticationExtensionsClientInputs,
+    credUser: PublicKeyCredentialUserEntity = user,
+  ): CreatePublicKeyCredential {
+    return emulator.create(rpOrigin, {
+      publicKey: { rp: { id: rpId, name: rpId }, user: credUser, challenge, pubKeyCredParams, extensions },
+    });
+  }
+
+  function assertCredential(
+    emulator: WebAuthnEmulator,
+    credentialId: BufferSource,
+    extensions: AuthenticationExtensionsClientInputs,
+  ): RequestPublicKeyCredential {
+    return emulator.get(rpOrigin, {
+      publicKey: { rpId, challenge, allowCredentials: [{ type: "public-key", id: credentialId }], extensions },
+    });
+  }
+
+  function prfResults(credential: PublicKeyCredential): AuthenticationExtensionsPRFValues {
+    const results = credential.getClientExtensionResults().prf?.results;
+    assert.ok(results);
+    assert.ok(results.first instanceof ArrayBuffer);
+    assert.equal(results.first.byteLength, 32);
+    if (results.second) {
+      assert.ok(results.second instanceof ArrayBuffer);
+      assert.equal(results.second.byteLength, 32);
+    }
+    return results;
+  }
+
+  test("hmac-secret-mc emulator create and get results match", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const credential = createCredential(emulator, { prf: { eval: { first: inputA, second: inputB } } });
+    assert.equal(credential.getClientExtensionResults().prf?.enabled, true);
+    const createResults = prfResults(credential);
+    assert.ok(createResults.second);
+
+    const credentialId = credential.rawId;
+    const assertion = assertCredential(emulator, credentialId, { prf: { eval: { first: inputA, second: inputB } } });
+    assert.deepEqual(prfResults(assertion), createResults);
+  });
+
+  test("assertCredential produces the same output with and without hmac-secret-mc", () => {
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const credential = createCredential(prfEmulator("hmac-secret-mc", repository), {
+      prf: { eval: { first: inputA } },
+    });
+    const createResults = prfResults(credential);
+    const credentialId = credential.rawId;
+
+    const evalInputs = { prf: { eval: { first: inputA, second: inputB } } };
+    const withMc = prfResults(assertCredential(prfEmulator("hmac-secret-mc", repository), credentialId, evalInputs));
+    const withoutMc = prfResults(assertCredential(prfEmulator("hmac-secret", repository), credentialId, evalInputs));
+
+    assert.ok(withMc.second);
+    assert.deepEqual(withMc.first, createResults.first);
+    assert.deepEqual(withMc, withoutMc);
+  });
+
+  test("hmac-secret only returns results during get", () => {
+    const emulator = prfEmulator("hmac-secret");
+    const credential = createCredential(emulator, { prf: {} });
+    const createResults = credential.getClientExtensionResults();
+    assert.equal(createResults.prf?.enabled, true);
+    assert.equal(createResults.prf?.results, undefined);
+
+    const credentialId = credential.rawId;
+    const assertResults = prfResults(
+      assertCredential(emulator, credentialId, { prf: { eval: { first: inputA, second: inputB } } }),
+    );
+    assert.ok(assertResults.second);
+  });
+
+  test("hmac-secret create with eval returns no key results", () => {
+    const emulator = prfEmulator("hmac-secret");
+    const credential = createCredential(emulator, { prf: { eval: { first: inputA } } });
+    const createResults = credential.getClientExtensionResults();
+    assert.equal(createResults.prf?.enabled, true);
+    assert.equal(createResults.prf?.results, undefined);
+
+    prfResults(assertCredential(emulator, credential.rawId, { prf: { eval: { first: inputA } } }));
+  });
+
+  test("two eval inputs produce two distinct outputs", () => {
+    const emulator = prfEmulator("hmac-secret");
+    const credentialId = createCredential(emulator, { prf: {} }).rawId;
+    const assertResults = prfResults(
+      assertCredential(emulator, credentialId, { prf: { eval: { first: inputA, second: inputB } } }),
+    );
+    assert.ok(assertResults.second);
+    assert.notDeepEqual(assertResults.first, assertResults.second);
+  });
+
+  test("no PRF result with no hmac-secret extension", () => {
+    const emulator = prfEmulator("none");
+    const credential = createCredential(emulator, { prf: {} });
+    assert.equal(credential.getClientExtensionResults().prf?.enabled, false);
+
+    const credentialId = credential.rawId;
+    const assertion = assertCredential(emulator, credentialId, { prf: { eval: { first: inputA } } });
+    assert.equal(assertion.getClientExtensionResults().prf, undefined);
+  });
+
+  test("PRF resolves for a discoverable credential without an allow list", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const createResults = prfResults(createCredential(emulator, { prf: { eval: { first: inputA, second: inputB } } }));
+
+    // no allowCredentials
+    const assertion = emulator.get(rpOrigin, {
+      publicKey: { rpId, challenge, extensions: { prf: { eval: { first: inputA, second: inputB } } } },
+    });
+    assert.deepEqual(prfResults(assertion), createResults);
+  });
+
+  test("evalByCredential returns each credential's result", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const userA = { id: EncodeUtils.strToUint8Array("prf-user-a"), name: "a", displayName: "A" };
+    const userB = { id: EncodeUtils.strToUint8Array("prf-user-b"), name: "b", displayName: "B" };
+
+    const credentialA = createCredential(emulator, { prf: { eval: { first: inputA } } }, userA);
+    const credentialB = createCredential(emulator, { prf: { eval: { first: inputB } } }, userB);
+    const resultsA = prfResults(credentialA);
+    const resultsB = prfResults(credentialB);
+    const idAB64 = EncodeUtils.encodeBase64Url(credentialA.rawId);
+    const idBB64 = EncodeUtils.encodeBase64Url(credentialB.rawId);
+
+    const assertedA = assertCredential(emulator, credentialA.rawId, {
+      prf: { evalByCredential: { [idAB64]: { first: inputA } } },
+    });
+    const assertedB = assertCredential(emulator, credentialB.rawId, {
+      prf: { evalByCredential: { [idBB64]: { first: inputB } } },
+    });
+    assert.deepEqual(prfResults(assertedA), resultsA);
+    assert.deepEqual(prfResults(assertedB), resultsB);
+  });
+
+  test("evalByCredential without allowCredentials throws NotSupportedError", () => {
+    const emulator = prfEmulator("hmac-secret");
+    assert.throws(
+      () =>
+        emulator.get(rpOrigin, {
+          publicKey: { rpId, challenge, extensions: { prf: { evalByCredential: { AAAA: { first: inputA } } } } },
+        }),
+      { name: "NotSupportedError" },
+    );
+  });
+
+  test("evalByCredential during creation throws NotSupportedError", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    assert.throws(() => createCredential(emulator, { prf: { evalByCredential: { AAAA: { first: inputA } } } }), {
+      name: "NotSupportedError",
+    });
+  });
+
+  test("evalByCredential with a key not in allowCredentials throws SyntaxError", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const credential = createCredential(emulator, { prf: { eval: { first: inputA } } });
+    const foreignKey = EncodeUtils.encodeBase64Url(EncodeUtils.strToUint8Array("not-a-listed-credential"));
+    for (const badKey of ["", "!not base64!", foreignKey]) {
+      assert.throws(
+        () =>
+          assertCredential(emulator, credential.rawId, { prf: { evalByCredential: { [badKey]: { first: inputA } } } }),
+        { name: "SyntaxError" },
+      );
+    }
+  });
+
+  test("empty evalByCredential does not require allowCredentials", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    createCredential(emulator, { prf: { eval: { first: inputA } } });
+    assert.doesNotThrow(() =>
+      emulator.get(rpOrigin, { publicKey: { rpId, challenge, extensions: { prf: { evalByCredential: {} } } } }),
+    );
+  });
+
+  test("credRandom persists to a file repository across emulator instances", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prf-file-credentials-"));
+    try {
+      const created = prfEmulator("hmac-secret-mc", new PasskeysCredentialsFileRepository(dir));
+      const credential = createCredential(created, { prf: { eval: { first: inputA, second: inputB } } });
+      const createResults = prfResults(credential);
+      const credentialId = credential.rawId;
+
+      const loaded = prfEmulator("hmac-secret-mc", new PasskeysCredentialsFileRepository(dir));
+      const assertResults = prfResults(
+        assertCredential(loaded, credentialId, { prf: { eval: { first: inputA, second: inputB } } }),
+      );
+      assert.deepEqual(assertResults, createResults);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("hmac-secret-mc PRF works with WebAuthnTestServer", async () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const testServer = new WebAuthnTestServer();
+    const prfUser = { username: "prf", id: "prf" };
+
+    const regOptions = await testServer.getRegistrationOptions(prfUser);
+    const credential = emulator.create(testServer.origin, {
+      publicKey: {
+        ...parseCreationOptionsFromJSON(regOptions),
+        extensions: { prf: { eval: { first: inputA, second: inputB } } },
+      },
+    });
+    await testServer.getRegistrationVerification(prfUser, credential.toJSON());
+    const createResults = prfResults(credential);
+
+    const authOptions = await testServer.getAuthenticationOptions();
+    const assertion = emulator.get(testServer.origin, {
+      publicKey: {
+        ...parseRequestOptionsFromJSON(authOptions),
+        extensions: { prf: { eval: { first: inputA, second: inputB } } },
+      },
+    });
+    // Verifies the signature over authenticatorData, which now carries the hmac-secret extension.
+    await testServer.getAuthenticationVerification(assertion.toJSON());
+    assert.deepEqual(prfResults(assertion), createResults);
+  });
+
+  test("createJSON and getJSON round-trip PRF eval", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const createOptions: PublicKeyCredentialCreationOptionsJSON = {
+      rp: { id: rpId, name: rpId },
+      user: { id: EncodeUtils.encodeBase64Url(user.id), name: user.name, displayName: user.displayName },
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      pubKeyCredParams,
+      extensions: {
+        prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA), second: EncodeUtils.encodeBase64Url(inputB) } },
+      },
+    };
+    const credential = emulator.createJSON(rpOrigin, createOptions);
+    const createResults = credential.clientExtensionResults.prf?.results;
+    assert.ok(createResults);
+    assert.ok(createResults.first);
+    assert.ok(createResults.second);
+
+    const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+      rpId,
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      allowCredentials: [{ type: "public-key", id: credential.id }],
+      extensions: {
+        prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA), second: EncodeUtils.encodeBase64Url(inputB) } },
+      },
+    };
+    const assertion = emulator.getJSON(rpOrigin, requestOptions);
+    assert.deepEqual(assertion.clientExtensionResults.prf?.results, createResults);
+  });
+
+  test("createJSON and getJSON round-trip PRF evalByCredential", () => {
+    const emulator = prfEmulator("hmac-secret-mc");
+    const createOptions: PublicKeyCredentialCreationOptionsJSON = {
+      rp: { id: rpId, name: rpId },
+      user: { id: EncodeUtils.encodeBase64Url(user.id), name: user.name, displayName: user.displayName },
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      pubKeyCredParams,
+      extensions: { prf: { eval: { first: EncodeUtils.encodeBase64Url(inputA) } } },
+    };
+    const credential = emulator.createJSON(rpOrigin, createOptions);
+    const createResults = credential.clientExtensionResults.prf?.results;
+    assert.ok(createResults);
+    const credentialIdB64 = credential.id;
+
+    const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+      rpId,
+      challenge: EncodeUtils.encodeBase64Url(challenge),
+      allowCredentials: [{ type: "public-key", id: credentialIdB64 }],
+      extensions: {
+        prf: { evalByCredential: { [credentialIdB64]: { first: EncodeUtils.encodeBase64Url(inputA) } } },
+      },
+    };
+    const assertion = emulator.getJSON(rpOrigin, requestOptions);
+    assert.deepEqual(assertion.clientExtensionResults.prf?.results, createResults);
   });
 });

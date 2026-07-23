@@ -13,6 +13,7 @@ import {
 } from "../../src/authenticator/ctap-model";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
+import { unpackAuthenticatorData } from "../../src/webauthn/webauthn-model";
 
 describe("Authenticator Emulator Exceptional Test", () => {
   // Success case has been tested in the webauthn-emulator.spec.ts
@@ -417,5 +418,188 @@ describe("Authenticator Credential Management Tests", () => {
       const call = () => target({ subCommand: CREDENTIAL_MANAGEMENT_SUBCOMMAND.deleteCredential });
       assert.throws(call, new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP2_ERR_NOT_ALLOWED));
     });
+  });
+});
+
+describe("hmac-secret extension", () => {
+  const rpId = "example.com";
+  const user = { id: EncodeUtils.strToUint8Array("hmac-user"), name: "user", displayName: "User" };
+  const clientDataHash = new Uint8Array(32).fill(1);
+  const pubKeyCredParams = [{ type: "public-key" as const, alg: -7 }];
+  const salt1 = new Uint8Array(32).fill(2);
+  const salt2 = new Uint8Array(32).fill(3);
+
+  function extensionOutput(authData: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> | boolean | undefined {
+    const extensions = unpackAuthenticatorData(authData).extensions as Record<string, unknown> | undefined;
+    return extensions?.["hmac-secret"] as Uint8Array<ArrayBuffer> | boolean | undefined;
+  }
+
+  function assertUint8Array(value: unknown): asserts value is Uint8Array<ArrayBuffer> {
+    if (!(value instanceof Uint8Array)) {
+      assert.fail("expected Uint8Array");
+    }
+  }
+
+  function credentialIdOf(authData: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+    const attested = unpackAuthenticatorData(authData).attestedCredentialData;
+    if (!attested) throw new Error("expected attested credential data");
+    return attested.credentialId;
+  }
+
+  function makeCredential(
+    authenticator: AuthenticatorEmulator,
+    credUser: PublicKeyCredentialUserEntity,
+    extensions?: object,
+  ) {
+    return authenticator.authenticatorMakeCredential({
+      clientDataHash,
+      rp: { id: rpId, name: rpId },
+      user: credUser,
+      pubKeyCredParams,
+      extensions,
+    });
+  }
+
+  function getAssertion(
+    authenticator: AuthenticatorEmulator,
+    credentialId: Uint8Array<ArrayBuffer>,
+    extensions?: object,
+  ) {
+    return authenticator.authenticatorGetAssertion({
+      rpId,
+      clientDataHash,
+      allowList: [{ type: "public-key", id: credentialId }],
+      extensions,
+    });
+  }
+
+  test("authenticator info returns enabled extensions", () => {
+    assert.equal(new AuthenticatorEmulator({ hmacSecret: "none" }).authenticatorGetInfo().extensions, undefined);
+    assert.deepEqual(new AuthenticatorEmulator({ hmacSecret: "hmac-secret" }).authenticatorGetInfo().extensions, [
+      "hmac-secret",
+    ]);
+    assert.deepEqual(new AuthenticatorEmulator({ hmacSecret: "hmac-secret-mc" }).authenticatorGetInfo().extensions, [
+      "hmac-secret",
+      "hmac-secret-mc",
+    ]);
+  });
+
+  test("hmac-secret makeCredential produces matching getAssertion output", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const credential = makeCredential(authenticator, user, { "hmac-secret": true });
+    assert.equal(extensionOutput(credential.authData), true);
+
+    const credentialId = credentialIdOf(credential.authData);
+    const output1 = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assertUint8Array(output1);
+    assert.equal(output1.length, 32);
+
+    const output2 = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.deepEqual(output2, output1);
+  });
+
+  test("hmac-secret-mc makeCredential produces matching getAssertion output", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret-mc",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const credential = makeCredential(authenticator, user, { "hmac-secret": true, "hmac-secret-mc": salt1 });
+    const output1 = extensionOutput(credential.authData);
+    assertUint8Array(output1);
+
+    const credentialId = credentialIdOf(credential.authData);
+    const output2 = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.deepEqual(output1, output2);
+
+    const output3 = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.deepEqual(output2, output3);
+  });
+
+  test("credRandom survives the stateless credentialId blob", () => {
+    const authenticator = new AuthenticatorEmulator({ hmacSecret: "hmac-secret-mc", stateless: true });
+    const make = makeCredential(authenticator, user, { "hmac-secret": true, "hmac-secret-mc": salt1 });
+    const createOutput = extensionOutput(make.authData);
+    assertUint8Array(createOutput);
+
+    const credentialId = credentialIdOf(make.authData);
+    const assertOutput = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.deepEqual(assertOutput, createOutput);
+  });
+
+  test("output differs per salt and per credential", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const user2 = { id: EncodeUtils.strToUint8Array("hmac-user-2"), name: "user2", displayName: "User Two" };
+    const id1 = credentialIdOf(makeCredential(authenticator, user, { "hmac-secret": true }).authData);
+    const id2 = credentialIdOf(makeCredential(authenticator, user2, { "hmac-secret": true }).authData);
+
+    const out1Salt1 = extensionOutput(getAssertion(authenticator, id1, { "hmac-secret": salt1 }).authData);
+    const out1Salt2 = extensionOutput(getAssertion(authenticator, id1, { "hmac-secret": salt2 }).authData);
+    const out2Salt1 = extensionOutput(getAssertion(authenticator, id2, { "hmac-secret": salt1 }).authData);
+
+    assert.notDeepEqual(out1Salt1, out1Salt2);
+    assert.notDeepEqual(out1Salt1, out2Salt1);
+  });
+
+  test("two salts produce the two concatenated outputs", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const credentialId = credentialIdOf(makeCredential(authenticator, user, { "hmac-secret": true }).authData);
+
+    const both = extensionOutput(
+      getAssertion(authenticator, credentialId, { "hmac-secret": new Uint8Array([...salt1, ...salt2]) }).authData,
+    );
+    assertUint8Array(both);
+    assert.equal(both.length, 64);
+
+    const first = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    const second = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt2 }).authData);
+    assert.deepEqual(both.slice(0, 32), first);
+    assert.deepEqual(both.slice(32), second);
+  });
+
+  test("rejects a salt that is not 32 or 64 bytes", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const credentialId = credentialIdOf(makeCredential(authenticator, user, { "hmac-secret": true }).authData);
+    assert.throws(
+      () => getAssertion(authenticator, credentialId, { "hmac-secret": new Uint8Array(33) }),
+      new AuthenticationEmulatorError(CTAP_STATUS_CODE.CTAP1_ERR_INVALID_PARAMETER),
+    );
+  });
+
+  test("no output for a credential created without hmac-secret", () => {
+    let authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    let credentialId = credentialIdOf(makeCredential(authenticator, user).authData);
+    let output = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.equal(output, undefined);
+
+    authenticator = new AuthenticatorEmulator({
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    credentialId = credentialIdOf(makeCredential(authenticator, user, { "hmac-secret": true }).authData);
+    output = extensionOutput(getAssertion(authenticator, credentialId, { "hmac-secret": salt1 }).authData);
+    assert.equal(output, undefined);
+  });
+
+  test("hmac-secret makeCredential ignores makeCredential salt", () => {
+    const authenticator = new AuthenticatorEmulator({
+      hmacSecret: "hmac-secret",
+      credentialsRepository: new PasskeysCredentialsMemoryRepository(),
+    });
+    const credential = makeCredential(authenticator, user, { "hmac-secret": true, "hmac-secret-mc": salt1 });
+    assert.equal(extensionOutput(credential.authData), true);
   });
 });

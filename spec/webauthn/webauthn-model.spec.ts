@@ -50,6 +50,7 @@ describe("WebAuthn Model Test", () => {
         rpIdHash: new Uint8Array(32),
         signCount: 0,
         attestedCredentialData: undefined,
+        extensions: { "hmac-secret": true },
       },
       attStmt: { test: "test123" },
     };
@@ -59,6 +60,29 @@ describe("WebAuthn Model Test", () => {
     assert.deepEqual(unpacked, testData);
   });
 
+  test("Attestation Object pack and unpack with attested credential data and extensions", async () => {
+    const createResponse = webauthnEmulator.create("https://test-rp.org", {
+      publicKey: {
+        rp: { name: "test-rp.org", id: "test-rp.org" },
+        user: { id: EncodeUtils.strToUint8Array("test-user"), name: "user", displayName: "user" },
+        challenge: EncodeUtils.strToUint8Array("challenge"),
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      },
+    });
+
+    const testData = unpackAttestationObject(new Uint8Array(createResponse.response.attestationObject));
+    testData.authData.flags.extensionData = true;
+    testData.authData.extensions = { "hmac-secret": new Uint8Array(32).fill(9) };
+
+    const packed = packAttestationObject(testData);
+    const unpacked = unpackAttestationObject(packed);
+    assert.deepEqual(unpacked, testData);
+
+    assert.equal(unpacked.authData.flags.extensionData, true);
+    assert.equal(unpacked.authData.flags.attestedCredentialData, true);
+    assert.deepEqual(unpacked.authData.extensions, { "hmac-secret": new Uint8Array(32).fill(9) });
+  });
+
   test("Undefined User Handle PublicKey serialize test", async () => {
     const testData: PublicKeyCredentialSource = {
       type: "public-key",
@@ -66,6 +90,21 @@ describe("WebAuthn Model Test", () => {
       privateKey: new Uint8Array([116, 101, 115, 116, 45, 99]),
       rpId: new RpId("test-rp.org"),
       userHandle: undefined,
+      credRandom: undefined,
+    };
+    const json = toPublickeyCredentialSourceJSON(testData);
+    const model = parsePublicKeyCredentialSourceFromJSON(json);
+    assert.deepEqual(model, testData);
+  });
+
+  test("CredRandom PublicKey serialize test", async () => {
+    const testData: PublicKeyCredentialSource = {
+      type: "public-key",
+      id: new Uint8Array([116, 101, 115, 116, 45, 99]),
+      privateKey: new Uint8Array([116, 101, 115, 116, 45, 99]),
+      rpId: new RpId("test-rp.org"),
+      userHandle: new Uint8Array([1, 2, 3, 4]),
+      credRandom: new Uint8Array(32).fill(1),
     };
     const json = toPublickeyCredentialSourceJSON(testData);
     const model = parsePublicKeyCredentialSourceFromJSON(json);

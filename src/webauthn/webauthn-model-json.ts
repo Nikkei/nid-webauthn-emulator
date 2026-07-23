@@ -13,7 +13,7 @@ export function parseCreationOptionsFromJSON(
     excludeCredentials: optionsJSON.excludeCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     authenticatorSelection: optionsJSON.authenticatorSelection,
     attestation: optionsJSON.attestation as AttestationConveyancePreference,
-    extensions: optionsJSON.extensions as AuthenticationExtensionsClientInputs | undefined,
+    extensions: parseExtensionsFromJSON(optionsJSON.extensions),
   };
 }
 
@@ -27,7 +27,7 @@ export function parseRequestOptionsFromJSON(
     rpId: optionsJSON.rpId,
     allowCredentials: optionsJSON.allowCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
     userVerification: optionsJSON.userVerification as UserVerificationRequirement,
-    extensions: optionsJSON.extensions as AuthenticationExtensionsClientInputs | undefined,
+    extensions: parseExtensionsFromJSON(optionsJSON.extensions),
   };
 }
 
@@ -70,7 +70,7 @@ export function toRegistrationResponseJSON(credential: PublicKeyCredential): Reg
       credential.authenticatorAttachment === null
         ? undefined
         : (credential.authenticatorAttachment as AuthenticatorAttachment),
-    clientExtensionResults: credential.getClientExtensionResults() as AuthenticationExtensionsClientOutputsJSON,
+    clientExtensionResults: toExtensionResultsJSON(credential.getClientExtensionResults()),
     type: credential.type as PublicKeyCredentialType,
   };
 }
@@ -91,7 +91,7 @@ export function toAuthenticationResponseJSON(credential: PublicKeyCredential): A
       credential.authenticatorAttachment === null
         ? undefined
         : (credential.authenticatorAttachment as AuthenticatorAttachment),
-    clientExtensionResults: credential.getClientExtensionResults() as AuthenticationExtensionsClientOutputsJSON,
+    clientExtensionResults: toExtensionResultsJSON(credential.getClientExtensionResults()),
     type: credential.type as PublicKeyCredentialType,
   };
 }
@@ -108,7 +108,7 @@ export function toCreationOptionsJSON(
     excludeCredentials: options.excludeCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     authenticatorSelection: options.authenticatorSelection,
     attestation: options.attestation,
-    extensions: options.extensions as AuthenticationExtensionsClientInputsJSON | undefined,
+    extensions: toExtensionInputsJSON(options.extensions),
   };
 }
 
@@ -121,7 +121,7 @@ export function toRequestOptionsJSON(
     rpId: options.rpId,
     allowCredentials: options.allowCredentials?.map(toPublicKeyCredentialDescriptorJSON),
     userVerification: options.userVerification,
-    extensions: options.extensions as AuthenticationExtensionsClientInputsJSON | undefined,
+    extensions: toExtensionInputsJSON(options.extensions),
   };
 }
 
@@ -138,7 +138,7 @@ export function parseRegistrationResponseFromJSON(options: RegistrationResponseJ
       attestationObject: decodeBase64Url(options.response.attestationObject),
     },
     authenticatorAttachment: options.authenticatorAttachment ?? null,
-    getClientExtensionResults: () => options.clientExtensionResults as AuthenticationExtensionsClientOutputs,
+    getClientExtensionResults: () => parseExtensionResultsFromJSON(options.clientExtensionResults),
     toJSON: () => options,
     type: options.type,
   };
@@ -155,7 +155,7 @@ export function parseAuthenticationResponseFromJSON(options: AuthenticationRespo
       userHandle: options.response.userHandle ? decodeBase64Url(options.response.userHandle) : null,
     },
     authenticatorAttachment: options.authenticatorAttachment ?? null,
-    getClientExtensionResults: () => options.clientExtensionResults as AuthenticationExtensionsClientOutputs,
+    getClientExtensionResults: () => parseExtensionResultsFromJSON(options.clientExtensionResults),
     toJSON: () => options,
     type: options.type,
   };
@@ -191,6 +191,108 @@ export function parsePublicKeyCredentialUserEntityFromJSON(
   user: PublicKeyCredentialUserEntityJSON,
 ): PublicKeyCredentialUserEntity {
   return { ...user, id: decodeBase64Url(user.id) };
+}
+
+export function parsePRFValuesFromJSON(
+  values: AuthenticationExtensionsPRFValuesJSON,
+): AuthenticationExtensionsPRFValues {
+  const parsed: AuthenticationExtensionsPRFValues = { first: decodeBase64Url(values.first) };
+  if (values.second !== undefined) {
+    parsed.second = decodeBase64Url(values.second);
+  }
+  return parsed;
+}
+
+function parsePRFInputsFromJSON(prf: AuthenticationExtensionsPRFInputsJSON): AuthenticationExtensionsPRFInputs {
+  const parsed: AuthenticationExtensionsPRFInputs = {};
+  if (prf.eval) {
+    parsed.eval = parsePRFValuesFromJSON(prf.eval);
+  }
+  if (prf.evalByCredential) {
+    parsed.evalByCredential = Object.fromEntries(
+      Object.entries(prf.evalByCredential).map(
+        ([credentialId, values]) => [credentialId, parsePRFValuesFromJSON(values)] as const,
+      ),
+    );
+  }
+  return parsed;
+}
+
+// Decodes each supported extension's JSON-encoded inputs into their non-json form.
+// Only prf needs decoding today. A future extension with encoded inputs should add code here.
+function parseExtensionsFromJSON(
+  extensionsJSON: AuthenticationExtensionsClientInputsJSON | undefined,
+): AuthenticationExtensionsClientInputs | undefined {
+  if (!extensionsJSON) {
+    return undefined;
+  }
+  const parsed = { ...extensionsJSON } as AuthenticationExtensionsClientInputs;
+  if (extensionsJSON.prf) {
+    parsed.prf = parsePRFInputsFromJSON(extensionsJSON.prf);
+  }
+  return parsed;
+}
+
+// Decodes each supported extension's JSON-encoded outputs into their non-json form.
+// Only prf needs decoding today. A future extension with encoded outputs should add code here.
+export function parseExtensionResultsFromJSON(
+  resultsJSON: AuthenticationExtensionsClientOutputsJSON,
+): AuthenticationExtensionsClientOutputs {
+  const parsed = { ...resultsJSON } as AuthenticationExtensionsClientOutputs;
+  if (resultsJSON.prf?.results) {
+    parsed.prf = { ...resultsJSON.prf, results: parsePRFValuesFromJSON(resultsJSON.prf.results) };
+  }
+  return parsed;
+}
+
+export function toPRFValuesJSON(values: AuthenticationExtensionsPRFValues): AuthenticationExtensionsPRFValuesJSON {
+  const json: AuthenticationExtensionsPRFValuesJSON = { first: encodeBase64Url(values.first) };
+  if (values.second !== undefined) {
+    json.second = encodeBase64Url(values.second);
+  }
+  return json;
+}
+
+// Encodes each supported extension's outputs into their json form.
+// Only prf needs encoding today. A future extension with encoded outputs should add code here.
+function toExtensionResultsJSON(
+  results: AuthenticationExtensionsClientOutputs,
+): AuthenticationExtensionsClientOutputsJSON {
+  const json = { ...results } as AuthenticationExtensionsClientOutputsJSON;
+  if (results.prf?.results) {
+    json.prf = { ...results.prf, results: toPRFValuesJSON(results.prf.results) };
+  }
+  return json;
+}
+
+export function toPRFInputsJSON(prf: AuthenticationExtensionsPRFInputs): AuthenticationExtensionsPRFInputsJSON {
+  const json: AuthenticationExtensionsPRFInputsJSON = {};
+  if (prf.eval) {
+    json.eval = toPRFValuesJSON(prf.eval);
+  }
+  if (prf.evalByCredential) {
+    json.evalByCredential = Object.fromEntries(
+      Object.entries(prf.evalByCredential).map(
+        ([credentialId, values]) => [credentialId, toPRFValuesJSON(values)] as const,
+      ),
+    );
+  }
+  return json;
+}
+
+// Encodes each supported extension's inputs into their json form.
+// Only prf needs encoding today. A future extension with encoded inputs should add code here.
+export function toExtensionInputsJSON(
+  extensions: AuthenticationExtensionsClientInputs | undefined,
+): AuthenticationExtensionsClientInputsJSON | undefined {
+  if (!extensions) {
+    return undefined;
+  }
+  const json = { ...extensions } as AuthenticationExtensionsClientInputsJSON;
+  if (extensions.prf) {
+    json.prf = toPRFInputsJSON(extensions.prf);
+  }
+  return json;
 }
 
 // Helper functions

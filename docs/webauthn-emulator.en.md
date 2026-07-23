@@ -13,23 +13,18 @@ A class that mimics the main functionality of the WebAuthn protocol.
 #### Key Methods
 
 1. `getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON`
-
    - Processes authentication requests and returns responses in JSON format.
 
 2. `createJSON(origin: string, optionsJSON: PublicKeyCredentialCreationOptionsJSON): RegistrationResponseJSON`
-
    - Processes credential creation requests and returns responses in JSON format.
 
 3. `getAuthenticatorInfo(): AuthenticatorInfo`
-
    - Retrieves authenticator information.
 
 4. `signalUnknownCredential(options: UnknownCredentialOptionsJSON): void`
-
    - Signals unknown credentials and removes them from the authenticator.
 
 5. `get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential`
-
    - Simulates the authentication process.
 
 6. `create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential`
@@ -43,7 +38,38 @@ A class that mimics the main functionality of the WebAuthn protocol.
 
 3. **JSON Compatibility**: The `getJSON` and `createJSON` methods enable processing of requests and responses in JSON format.
 
-4. **Authenticator Information**: The `getAuthenticatorInfo` method allows you to obtain detailed information about the Authenticator.
+4. **WebAuthn PRF Extension**: The `create`, `get`, `createJSON`, and `getJSON` functions handle PRF requests with an hmacSecret enabled Authenticator.
+
+5. **Authenticator Information**: The `getAuthenticatorInfo` method allows you to obtain detailed information about the Authenticator.
+
+## PRF Extension
+
+`create`, `createJSON`, `get`and `getJSON` support the WebAuthn [PRF extension](https://www.w3.org/TR/webauthn-3/#prf-extension). It requires an `AuthenticatorEmulator` with `hmacSecret` enabled (see the [authenticator emulator docs](authenticator-emulator.en.md)).
+
+Provide inputs through `extensions.prf` and read outputs from `getClientExtensionResults().prf`:
+
+```TypeScript
+const emulator = new WebAuthnEmulator(new AuthenticatorEmulator({ hmacSecret: "hmac-secret-mc" }));
+
+const credential = emulator.create(origin, {
+  publicKey: {
+    ...creationOptions,
+    // first (and optional second) are BufferSource inputs
+    extensions: { prf: { eval: { first: salt1, second: salt2 } } },
+  },
+});
+
+// prf.results are 32 byte ArrayBuffers, stable per salt and credential
+const {first, second} = credential.getClientExtensionResults().prf!.results;
+```
+
+The `hmacSecret` option passed to the `AuthenticatorEmulator` controls when `getClientExtensionResults().prf` contains resulting keys:
+
+- **`"none"`**: (default) the PRF extension is disabled and returns no keys.
+- **`"hmac-secret"`**: `create` sets `prf.enabled` to `true` but returns no extension `prf.results`. `get` returns keys in extension `prf.results`.
+- **`"hmac-secret-mc"`**: `create` sets `prf.enabled` to `true` and returns keys in extension `prf.results`. `get` returns keys in extension `prf.results`.
+
+The JSON variants `createJSON` and `getJSON` take the same inputs as base64url strings and return `prf.results` as base64url strings.
 
 ## Security Considerations
 
@@ -73,7 +99,7 @@ The WebAuthn emulator maps internal CTAP errors to WebAuthn-facing exceptions.
 
 2. Actual implementations may require more stringent security checks and production-appropriate settings.
 
-3. This emulator covers the basic functionality of the WebAuthn specification, but does not support all advanced features or extensions.
+3. This emulator covers the basic functionality of the WebAuthn specification, including the PRF extension (see [PRF Extension](#prf-extension)). It does not support all advanced features or extensions.
 
 ## Usage Example
 
