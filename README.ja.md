@@ -62,10 +62,13 @@ const authenticator = new AuthenticatorEmulator({
     userPresent: false,
   },
   signCounterIncrement: 0,
+  hmacSecret: "hmac-secret-mc",
 });
 
 const webAuthnEmulator = new WebAuthnEmulator(authenticator);
 ```
+
+`hmacSecret` オプションは、WebAuthn の [PRF 拡張](https://www.w3.org/TR/webauthn-3/#prf-extension) の実装のバックエンドとなりうる CTAP2 拡張の有無を制御します。認証時にのみ評価するなら `"hmac-secret"`、登録時にも評価するなら（CTAP 2.2）`"hmac-secret-mc"`、拡張を使わないなら `"none"`（デフォルト）を指定します。
 
 `AuthenticatorEmulator` は FIDO2/CTAP の仕様のうち下記のコマンドを実装しています。
 

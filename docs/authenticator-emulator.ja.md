@@ -41,6 +41,16 @@ CTAP プロトコルに基づいた Authenticator の主要な機能をエミュ
 
 6. **ステートレスモード**: Authenticator の状態を保持せず、各コマンドの処理を独立して行います。
 
+## HMAC Secret 拡張
+
+このエミュレータは、WebAuthn PRF 拡張の実装のバックエンドとなりうる CTAP2 の `hmac-secret` 拡張を実装しています。`hmacSecret` パラメータで選択し、デフォルトは `"none"` です。
+
+- **`"none"`**: `authenticatorGetInfo` の対応拡張一覧にも含めず、拡張の処理も行いません。
+- **`"hmac-secret"`**: `authenticatorGetInfo` の対応拡張一覧に含めます。`authenticatorMakeCredential` では 32 バイトのシークレット（`CredRandom`）を生成して資格情報とともに保存し、`authenticatorGetAssertion` では要求された salt ごとに `HMAC-SHA-256(CredRandom, salt)` を返します（salt が 1 つなら 32 バイト、2 つなら 64 バイトの入力になります）。
+- **`"hmac-secret-mc"`**: `hmac-secret-mc` も対応拡張一覧に含め、`authenticatorGetAssertion` に加えて `authenticatorMakeCredential`（CTAP 2.2）で渡された salt も評価します。
+
+`CredRandom` は資格情報とともに永続化されるため、エミュレータのインスタンスをまたいでも同じ salt に対して同じ出力を再現できます。
+
 ## セキュリティ考慮事項
 
 - 排他リストと許可リストの処理: 資格情報の作成時や認証時に、適切な資格情報のフィルタリングを行います。
@@ -56,7 +66,7 @@ CTAP プロトコルに基づいた Authenticator の主要な機能をエミュ
 
 2. 実際の実装では、より厳密なセキュリティチェックと本番環境に適した設定が必要になる場合があります。
 
-3. このエミュレータは、FIDO2/WebAuthn 仕様の基本的な機能をカバーしていますが、すべての高度な機能や拡張機能をサポートしているわけではありません。
+3. このエミュレータは、`hmac-secret` 拡張（[HMAC Secret 拡張](#hmac-secret-拡張)を参照）を含む FIDO2/WebAuthn 仕様の基本的な機能をカバーしていますが、すべての高度な機能や拡張機能をサポートしているわけではありません。
 
 ## カスタマイズ
 
@@ -70,6 +80,7 @@ CTAP プロトコルに基づいた Authenticator の主要な機能をエミュ
 - ユーザーインタラクションのシミュレーション
 - 資格情報の保存方法
 - ステートレスモードの有効化
+- HMAC secret 拡張モード
 
 ## 使用例
 
