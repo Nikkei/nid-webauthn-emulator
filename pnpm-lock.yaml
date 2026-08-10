@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       tldts:
-        specifier: 7.1.2
-        version: 7.1.2
+        specifier: 7.4.10
+        version: 7.4.10
     devDependencies:
       '@biomejs/biome':
         specifier: 2.5.0
@@ -277,11 +277,11 @@ packages:
   reflect-metadata@0.2.2:
     resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
 
-  tldts-core@7.4.0:
-    resolution: {integrity: sha512-/mb9kRld+x1sIMXxWNOAp5m6C+D4GrAORWlJkOJ5dElvxdN1eutz/o7qHLp9gFvDF4Y3/L2xeScoxz6AbEo8rQ==}
+  tldts-core@7.4.10:
+    resolution: {integrity: sha512-KnQjp53ZekKgm/r3l+u8kJGGzYgrWdP8+Mql7a4vijh2WE0IrZWspQj/TpTxDho/YxO+AnOZnIjQcCD+q6iJsw==}
 
-  tldts@7.1.2:
-    resolution: {integrity: sha512-RUX5sQm8bl03ycwQ6nSgJiKw9FZWhA8GBzxX6X1lsG3xKzFIW+lYLLpM30FQbDD6XjTWa/VkF15VxjnAMWYJAQ==}
+  tldts@7.4.10:
+    resolution: {integrity: sha512-GgouD1B+sWwvkaEq8vXC15DjQitxbvs12oIXELpconwm+Tg3zfcEv4jgzq3vtKverDXsg3VI8aRgNL2Nra0Iog==}
     hasBin: true
 
   tslib@1.14.1:
@@ -534,11 +534,11 @@ snapshots:
 
   reflect-metadata@0.2.2: {}
 
-  tldts-core@7.4.0: {}
+  tldts-core@7.4.10: {}
 
-  tldts@7.1.2:
+  tldts@7.4.10:
     dependencies:
-      tldts-core: 7.4.0
+      tldts-core: 7.4.10
 
   tslib@1.14.1: {}
 

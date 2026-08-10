@@ -32,6 +32,6 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "tldts": "7.1.2"
+    "tldts": "7.4.10"
   }
 }
