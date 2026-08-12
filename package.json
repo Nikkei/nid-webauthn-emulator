@@ -28,7 +28,7 @@
     "@biomejs/biome": "2.5.0",
     "@simplewebauthn/server": "13.3.2",
     "@tsconfig/recommended": "1.0.13",
-    "@types/node": "26.1.1",
+    "@types/node": "26.1.2",
     "typescript": "7.0.2"
   },
   "dependencies": {
