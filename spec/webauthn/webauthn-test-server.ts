@@ -5,6 +5,7 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
+import { toExtensionInputsJSON } from "../../src/webauthn/webauthn-model-json";
 import type { PasskeysApiClient, PasskeysUser } from "../integration/passkeys-api-client";
 
 type UserModel = {
@@ -52,7 +53,10 @@ export class WebAuthnTestServer implements PasskeysApiClient {
     });
     options.user.id;
     this.challenges.add(options.challenge);
-    return options;
+    return {
+      ...options,
+      extensions: toExtensionInputsJSON(options.extensions as AuthenticationExtensionsClientInputs),
+    };
   }
 
   async getRegistrationVerification(user: PasskeysUser, response: RegistrationResponseJSON): Promise<void> {
@@ -85,7 +89,10 @@ export class WebAuthnTestServer implements PasskeysApiClient {
       })),
     });
     this.challenges.add(options.challenge);
-    return options;
+    return {
+      ...options,
+      extensions: toExtensionInputsJSON(options.extensions as AuthenticationExtensionsClientInputs),
+    };
   }
 
   async getAuthenticationVerification(response: AuthenticationResponseJSON): Promise<void> {
