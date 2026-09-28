@@ -26,7 +26,7 @@
   "types": "dist/src/index.d.ts",
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
-    "@simplewebauthn/server": "13.3.2",
+    "@simplewebauthn/server": "14.0.2",
     "@tsconfig/recommended": "1.0.13",
     "@types/node": "26.2.0",
     "typescript": "7.0.2"
