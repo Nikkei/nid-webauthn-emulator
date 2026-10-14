@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: x64-ubuntu24-2core-8gb
     permissions:
       contents: read
       id-token: write
