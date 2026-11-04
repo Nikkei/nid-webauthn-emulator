@@ -73,7 +73,9 @@ The JSON variants `createJSON` and `getJSON` take the same inputs as base64url s
 
 ## Security Considerations
 
-- Relying Party ID validation: Performs proper RPID validation and generates errors for invalid RPIDs.
+- Relying Party ID validation: Uses the standard `URL` parser to compare hostnames. The origin's hostname must equal the RP ID or end with `.` followed by the RP ID. IP addresses and single-label names other than `localhost` are rejected.
+- Validation limits: This emulator does not use the Public Suffix List, so a multi-label public suffix such as `co.jp` or `co.uk` can be accepted as an RP ID. Use an actual RP domain for tests; browser public-suffix rejection is not emulated.
+- Related origins: Retains hostname-only matching, including subdomains, for entries in `relatedOrigins`. Schemes and ports are ignored; this does not emulate the browser's exact origin comparison.
 - Challenge processing: Includes challenges in client data and processes them with proper hashing.
 
 ## Error Handling
