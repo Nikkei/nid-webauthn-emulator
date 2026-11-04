@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { parse } from "tldts";
+import { isIP } from "node:net";
 import type { AuthenticatorInteractionOptions, AuthenticatorOptions } from "../authenticator/ctap-model";
 import EncodeUtils from "../libs/encode-utils";
 import { CoseKey } from "./cose-key";
@@ -11,30 +11,25 @@ export class RpId {
     return new Uint8Array(createHash("sha256").update(this.value).digest());
   }
 
-  /** @see https://www.w3.org/TR/webauthn-3/#sctn-validating-origin */
+  /** Matches hostnames without Public Suffix List validation. */
   public validate(origin: string, relatedOrigins: string[] = []): boolean {
-    const parsedOrigin = parse(origin, { validHosts: ["localhost"] });
+    const hostname = parseHostname(origin);
+    if (!hostname) return false;
 
-    const expectedOrigins = [this.value, ...relatedOrigins];
+    return [this.value, ...relatedOrigins].some((expectedOrigin) => {
+      const expectedHostname = parseHostname(expectedOrigin);
+      return Boolean(expectedHostname && (hostname === expectedHostname || hostname.endsWith(`.${expectedHostname}`)));
+    });
+  }
+}
 
-    // Check each origin using standard validation
-    for (const expectedOrigin of expectedOrigins) {
-      const parsedExpectedOrigin = parse(expectedOrigin, { validHosts: ["localhost"] });
-
-      const isValid = Boolean(
-        parsedOrigin.domain &&
-          parsedOrigin.subdomain !== null &&
-          parsedExpectedOrigin.subdomain !== null &&
-          parsedOrigin.domain === parsedExpectedOrigin.domain &&
-          parsedOrigin.subdomain.endsWith(parsedExpectedOrigin.subdomain),
-      );
-
-      if (isValid) {
-        return true;
-      }
-    }
-
-    return false;
+function parseHostname(value: string): string | undefined {
+  try {
+    const hostname = new URL(value.includes("://") ? value : `https://${value}`).hostname.replace(/\.$/, "");
+    if (isIP(hostname) || hostname.startsWith("[")) return undefined;
+    return hostname === "localhost" || hostname.includes(".") ? hostname : undefined;
+  } catch {
+    return undefined;
   }
 }
 

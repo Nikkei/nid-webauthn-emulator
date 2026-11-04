@@ -30,8 +30,5 @@
     "@tsconfig/recommended": "1.0.13",
     "@types/node": "26.6.5",
     "typescript": "7.0.2"
-  },
-  "dependencies": {
-    "tldts": "7.4.19"
   }
 }

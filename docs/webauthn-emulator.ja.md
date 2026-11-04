@@ -73,7 +73,9 @@ JSON 版の `createJSON` と `getJSON` は、上記と同じ入力を base64url 
 
 ## セキュリティ考慮事項
 
-- Relying Party ID の検証: 適切な RPID の検証を行い、無効な RPID に対してはエラーを発生させます。
+- Relying Party ID の検証: 標準の `URL` パーサーでホスト名を取り出し、Origin のホスト名が RP ID と一致するか、`.` と RP ID をつなげた文字列で終わることを確認します。IP アドレスと、`localhost` 以外の単一ラベルの名前は拒否します。
+- 検証の制限: Public Suffix List は使用しないため、`co.jp` や `co.uk` のような複数ラベルの public suffix も RP ID として許可されます。テストには実際の RP のドメインを指定してください。ブラウザによる public suffix の拒否は再現しません。
+- Related origins: 従来どおり、`relatedOrigins` の各ホスト名とそのサブドメインを許可します。スキームとポートは比較しないため、ブラウザの厳密な Origin 比較は再現しません。
 - チャレンジの処理: クライアントデータにチャレンジを含め、適切にハッシュ化して処理します。
 
 ## エラーハンドリング

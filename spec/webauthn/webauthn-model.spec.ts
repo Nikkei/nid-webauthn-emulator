@@ -15,6 +15,71 @@ import {
   unpackAttestationObject,
 } from "../../src/webauthn/webauthn-model";
 
+describe("RP ID validation", () => {
+  for (const [rpId, origin] of [
+    ["example.com", "https://example.com"],
+    ["example.com", "https://login.example.com"],
+    ["login.example.com", "https://nested.login.example.com"],
+    ["example.co.jp", "https://login.example.co.jp"],
+    ["localhost", "http://localhost:3000"],
+    ["localhost", "http://app.localhost:3000"],
+    ["EXAMPLE.COM", "https://LOGIN.EXAMPLE.COM:8443"],
+    ["example.com.", "https://login.example.com."],
+    ["bücher.de", "https://login.xn--bcher-kva.de"],
+  ]) {
+    test(`accepts ${origin} for ${rpId}`, () => {
+      assert.equal(new RpId(rpId).validate(origin), true);
+    });
+  }
+
+  for (const [rpId, origin] of [
+    ["example.com", "https://other.com"],
+    ["example.com", "https://notexample.com"],
+    ["example.com", "https://example.com.evil.com"],
+    ["login.example.com", "https://evil-login.example.com"],
+    ["login.example.com", "https://other.example.com"],
+    ["login.example.com", "https://example.com"],
+    ["com", "https://example.com"],
+    ["127.0.0.1", "http://127.0.0.1:3000"],
+    ["[::1]", "http://[::1]:3000"],
+    ["0.0.1", "http://127.0.0.1"],
+    ["example.com", "https://[invalid]"],
+    ["example.com", ""],
+    ["", "https://example.com"],
+    ["invalid host", "https://example.com"],
+  ]) {
+    test(`rejects ${origin} for ${rpId}`, () => {
+      assert.equal(new RpId(rpId).validate(origin), false);
+    });
+  }
+
+  test("accepts related hosts and their subdomains", () => {
+    const rpId = new RpId("example.com");
+    const relatedOrigins = ["https://login.other.com"];
+    assert.equal(rpId.validate("https://login.other.com"), false);
+    assert.equal(rpId.validate("https://login.other.com", relatedOrigins), true);
+    assert.equal(rpId.validate("https://nested.login.other.com", relatedOrigins), true);
+    assert.equal(rpId.validate("https://evil-login.other.com", relatedOrigins), false);
+    assert.equal(rpId.validate("https://other.com", relatedOrigins), false);
+  });
+
+  test("preserves hostname-only matching for related origins", () => {
+    assert.equal(new RpId("example.com").validate("http://other.com:3000", ["https://other.com"]), true);
+  });
+
+  test("ignores malformed related origins", () => {
+    assert.equal(
+      new RpId("example.com").validate("https://other.com", ["https://[invalid]", "https://other.com"]),
+      true,
+    );
+  });
+
+  test("does not distinguish multi-label public suffixes from registrable domains", () => {
+    assert.equal(new RpId("co.jp").validate("https://example.co.jp"), true);
+    assert.equal(new RpId("co.uk").validate("https://example.co.uk"), true);
+  });
+});
+
 describe("WebAuthn Model Test", () => {
   const webauthnEmulator = new WebAuthnEmulator();
   test("Attestation Object pack and unpack", async () => {
