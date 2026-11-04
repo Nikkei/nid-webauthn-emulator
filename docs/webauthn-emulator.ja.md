@@ -13,23 +13,18 @@ WebAuthn プロトコルの主要な機能を模倣するクラスです。
 #### 主要メソッド
 
 1. `getJSON(origin: string, optionsJSON: PublicKeyCredentialRequestOptionsJSON): AuthenticationResponseJSON`
-
    - 認証リクエストを処理し、JSON 形式で応答を返します。
 
 2. `createJSON(origin: string, optionsJSON: PublicKeyCredentialCreationOptionsJSON): RegistrationResponseJSON`
-
    - 資格情報の作成リクエストを処理し、JSON 形式で応答を返します。
 
 3. `getAuthenticatorInfo(): AuthenticatorInfo`
-
    - オーセンティケータの情報を取得します。
 
 4. `signalUnknownCredential(options: UnknownCredentialOptionsJSON): void`
-
    - 不明な資格情報を通知し、認証器から削除します。
 
 5. `get(origin: string, options: CredentialRequestOptions): RequestPublicKeyCredential`
-
    - 認証プロセスをシミュレートします。
 
 6. `create(origin: string, options: CredentialCreationOptions): CreatePublicKeyCredential`
@@ -65,7 +60,7 @@ const credential = emulator.create(origin, {
 });
 
 // prf.results は 32 バイトの ArrayBuffer で、同じ salt と資格情報に対しては常に同じ値になります
-const {first, second} = credential.getClientExtensionResults().prf!.results;
+const { first, second } = credential.getClientExtensionResults().prf!.results;
 ```
 
 `AuthenticatorEmulator` に渡す `hmacSecret` オプションによって、`getClientExtensionResults().prf` に鍵が含まれるタイミングが変わります。

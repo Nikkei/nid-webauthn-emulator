@@ -13,15 +13,12 @@ CTAP プロトコルに基づいた Authenticator の主要な機能をエミュ
 #### 主要メソッド
 
 1. `command(request: CTAPAuthenticatorRequest): CTAPAuthenticatorResponse`
-
    - CTAP コマンドを受け取り、適切な応答を返します。
 
 2. `authenticatorGetInfo(): AuthenticatorGetInfoResponse`
-
    - Authenticator の情報を返します。
 
 3. `authenticatorMakeCredential(request: AuthenticatorMakeCredentialRequest): AuthenticatorMakeCredentialResponse`
-
    - 新しい資格情報を作成します。
 
 4. `authenticatorGetAssertion(request: AuthenticatorGetAssertionRequest): AuthenticatorGetAssertionResponse`
