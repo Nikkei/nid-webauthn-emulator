@@ -60,7 +60,7 @@ const credential = emulator.create(origin, {
 });
 
 // prf.results are 32 byte ArrayBuffers, stable per salt and credential
-const {first, second} = credential.getClientExtensionResults().prf!.results;
+const { first, second } = credential.getClientExtensionResults().prf!.results;
 ```
 
 The `hmacSecret` option passed to the `AuthenticatorEmulator` controls when `getClientExtensionResults().prf` contains resulting keys:
