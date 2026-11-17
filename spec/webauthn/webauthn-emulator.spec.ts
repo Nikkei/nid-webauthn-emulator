@@ -18,11 +18,133 @@ import WebAuthnEmulator, {
   type RequestPublicKeyCredential,
   toPublicKeyCredentialDescriptorJSON,
   unpackAuthenticatorData,
+  type VerifiedCredential,
+  verifyAuthentication,
+  verifyRegistration,
 } from "../../src";
 import EncodeUtils from "../../src/libs/encode-utils";
 import { PasskeysCredentialsFileRepository } from "../../src/repository/credentials-file-repository";
 import { PasskeysCredentialsMemoryRepository } from "../../src/repository/credentials-memory-repository";
 import { TEST_RP_ORIGIN, WebAuthnTestServer } from "./webauthn-test-server";
+
+describe("Credential backup flags", () => {
+  const origin = "https://backup.example.com";
+  const rpId = "backup.example.com";
+  const challenge = "YmFja3Vw";
+  const expectations = { expectedOrigin: origin, expectedRPID: rpId, expectedChallenge: challenge };
+
+  function register(authenticator: AuthenticatorEmulator, userId = "dXNlcg") {
+    const response = new WebAuthnEmulator(authenticator).createJSON(origin, {
+      rp: { id: rpId, name: "Backup flags" },
+      user: { id: userId, name: "user", displayName: "User" },
+      challenge,
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    });
+    return verifyRegistration({ response, ...expectations }).credential;
+  }
+
+  function authenticate(authenticator: AuthenticatorEmulator, credential: VerifiedCredential) {
+    const response = new WebAuthnEmulator(authenticator).getJSON(origin, {
+      rpId,
+      challenge,
+      allowCredentials: [{ type: "public-key", id: credential.id }],
+    });
+    return verifyAuthentication({ response, credential, ...expectations });
+  }
+
+  for (const stateless of [false, true]) {
+    for (const flags of [
+      {},
+      { backupEligibility: false, backupState: false },
+      { backupState: false },
+      { backupEligibility: true },
+      { backupEligibility: true, backupState: false },
+      { backupEligibility: true, backupState: true },
+    ]) {
+      test(`preserves backup flags across instances: stateless=${stateless}, flags=${JSON.stringify(flags)}`, () => {
+        const repository = new PasskeysCredentialsMemoryRepository();
+        const credential = register(
+          new AuthenticatorEmulator({ stateless, credentialsRepository: repository, ...flags }),
+        );
+        assert.equal(credential.backupEligible, flags.backupEligibility ?? !stateless);
+        assert.equal(credential.backupState, flags.backupState ?? !stateless);
+
+        const authenticator = new AuthenticatorEmulator({
+          stateless,
+          credentialsRepository: repository,
+          backupEligibility: true,
+          backupState: !credential.backupState,
+        });
+        const result = authenticate(authenticator, credential);
+        assert.equal(result.backupEligible, credential.backupEligible);
+        assert.equal(result.backupState, credential.backupState);
+      });
+    }
+  }
+
+  test("changes BS for one credential while preserving BE and other credentials", () => {
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+      backupEligibility: true,
+      backupState: false,
+    });
+    const credential = register(authenticator);
+    const other = register(authenticator, "b3RoZXI");
+
+    for (const backupState of [true, false]) {
+      const stored = repository
+        .loadCredentials()
+        .find((item) => EncodeUtils.encodeBase64Url(item.publicKeyCredentialSource.id) === credential.id);
+      assert.ok(stored);
+      stored.authenticatorData.flags.backupState = backupState;
+      repository.saveCredential(stored);
+
+      const reader = new AuthenticatorEmulator({
+        credentialsRepository: repository,
+        backupEligibility: false,
+        backupState: false,
+      });
+      const result = authenticate(reader, credential);
+      assert.equal(result.backupEligible, true);
+      assert.equal(result.backupState, backupState);
+      assert.equal(authenticate(reader, other).backupState, false);
+      assert.equal(authenticate(reader, credential).backupState, backupState);
+    }
+  });
+
+  test("rejects BS=true with BE=false in configuration and stored credentials", () => {
+    assert.throws(() => new AuthenticatorEmulator({ backupEligibility: false, backupState: true }), TypeError);
+    assert.throws(() => new AuthenticatorEmulator({ stateless: true, backupState: true }), TypeError);
+    const repository = new PasskeysCredentialsMemoryRepository();
+    const authenticator = new AuthenticatorEmulator({
+      credentialsRepository: repository,
+      backupEligibility: false,
+      backupState: false,
+    });
+    const credential = register(authenticator);
+    const stored = repository.loadCredentials()[0];
+    stored.authenticatorData.flags.backupState = true;
+    repository.saveCredential(stored);
+    assert.throws(() => authenticate(authenticator, credential), TypeError);
+
+    authenticator.params = { ...authenticator.params, backupState: true };
+    assert.throws(() => register(authenticator), TypeError);
+  });
+
+  test("reads stateless credential IDs created before backup flags were stored", () => {
+    // Generated by the pre-BE/BS emulator; its encrypted payload contains only the private key.
+    const id =
+      "14rCnO9iDM9yMXziv2wfZ0K5MDdb1E0QDG3v3w_M9YcQbkiC43ic4ZurLCSXe0C1UnL9jFpLq5dMBoESGaAGvgioPglMQEezLzE9jrnWrpvXuV5C5lADBQgOTrZcwlP9RE1jeQ7bJGod2ip_BZXLIAjAC1j63W1YeeHyjWszCLpe6mMz0QPL4gGuYsxCsV4pAIvDA6y5V2cxRCZs2JUb-agxha_-DIpo";
+    const emulator = new WebAuthnEmulator(
+      new AuthenticatorEmulator({ stateless: true, backupEligibility: true, backupState: true }),
+    );
+    const response = emulator.getJSON(origin, { rpId, challenge, allowCredentials: [{ type: "public-key", id }] });
+    const flags = unpackAuthenticatorData(EncodeUtils.decodeBase64Url(response.response.authenticatorData)).flags;
+    assert.equal(flags.backupEligibility, false);
+    assert.equal(flags.backupState, false);
+  });
+});
 
 describe("WebAuthnEmulator Registration Passkeys Test", () => {
   const user = { username: "test", id: "test" };

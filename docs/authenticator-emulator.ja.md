@@ -67,6 +67,8 @@ CTAP プロトコルに基づいた Authenticator の主要な機能をエミュ
 
 ## カスタマイズ
 
+`backupEligibility`（BE）と `backupState`（BS）で、新規資格情報の初期値を設定できます。既定値は通常モードで両方 `true`、ステートレスモードで両方 `false` です。BS を `true` にするには BE も `true` にしてください。
+
 `AuthenticatorParameters`を使用して、以下の項目をカスタマイズできます：
 
 - AAGUID

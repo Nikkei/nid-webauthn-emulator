@@ -67,6 +67,8 @@ Uses the `AuthenticationEmulatorError` class to return error codes based on the 
 
 ## Customization
 
+Use `backupEligibility` (BE) and `backupState` (BS) to set the initial flags for new credentials. Both default to `true` in stateful mode and `false` in stateless mode. BS can be `true` only when BE is `true`.
+
 Using `AuthenticatorParameters`, you can customize the following items:
 
 - AAGUID
