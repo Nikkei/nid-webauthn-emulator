@@ -39,6 +39,8 @@ type InteractionResponse = {
   options: { uv: boolean; up: boolean };
 };
 
+type BackupFlags = Pick<AuthenticatorData["flags"], "backupEligibility" | "backupState">;
+
 export const COSEAlgorithmIdentifier = {
   ES256: -7,
   RS256: -257,
@@ -77,6 +79,8 @@ export type AuthenticatorParameters = {
   readonly credentialsRepository: PasskeysCredentialsRepository | undefined;
   readonly stateless: boolean;
   readonly hmacSecret: HmacSecretMode;
+  readonly backupEligibility: boolean;
+  readonly backupState: boolean;
 };
 
 export type MakeCredentialInteraction = (user: PublicKeyCredentialUserEntity, uv: boolean) => boolean;
@@ -125,6 +129,10 @@ export class AuthenticatorEmulator {
         : (params.credentialsRepository ?? AuthenticatorEmulator.DEFAULT_CREDENTIALS_REPOSITORY),
       stateless: params.stateless ?? AuthenticatorEmulator.DEFAULT_STATELESS,
       hmacSecret: params.hmacSecret ?? AuthenticatorEmulator.DEFAULT_HMAC_SECRET,
+      ...getBackupFlags({
+        backupEligibility: params.backupEligibility ?? !params.stateless,
+        backupState: params.backupState ?? !params.stateless,
+      }),
     };
   }
 
@@ -363,6 +371,7 @@ export class AuthenticatorEmulator {
       alg,
       this.params.transports,
       interactionResponse,
+      this.params,
       request.user,
       repository ? undefined : AuthenticatorEmulator.ENCRYPT_KEY,
       hmacSecret?.credRandom,
@@ -419,7 +428,7 @@ export class AuthenticatorEmulator {
       newSignCount,
       credential.publicKeyCredentialSource,
       interactionResponse,
-      !repository,
+      credential.authenticatorData.flags,
       extensions,
     );
 
@@ -453,9 +462,11 @@ function getCredentialsStateless(
 ): PasskeyCredential[] {
   return allowCredentials.map((descriptor) => {
     const id = EncodeUtils.bufferSourceToUint8Array(descriptor.id);
-    const { privateKey, credRandom } = EncodeUtils.decodeCbor<{
+    const { privateKey, credRandom, backupEligibility, backupState } = EncodeUtils.decodeCbor<{
       privateKey: Uint8Array<ArrayBuffer>;
       credRandom?: Uint8Array<ArrayBuffer>;
+      backupEligibility?: boolean;
+      backupState?: boolean;
     }>(decryptBytes(key, id));
     const publicKeyCredentialSource: PublicKeyCredentialSource = {
       type: "public-key",
@@ -467,8 +478,7 @@ function getCredentialsStateless(
     const authData: AuthenticatorData = {
       rpIdHash: rpId.hash,
       flags: {
-        backupEligibility: false,
-        backupState: false,
+        ...getBackupFlags({ backupEligibility, backupState }),
         userPresent: true,
         userVerified: true,
         attestedCredentialData: false,
@@ -515,13 +525,22 @@ function saveCredential(credential: PasskeyDiscoverableCredential, repository: P
   repository.saveCredential(credential);
 }
 
+function getBackupFlags(flags: BackupFlags) {
+  const backupEligibility = flags.backupEligibility ?? false;
+  const backupState = flags.backupState ?? false;
+  if (backupState && !backupEligibility) {
+    throw new TypeError("backupState requires backupEligibility");
+  }
+  return { backupEligibility, backupState };
+}
+
 function getAssertion(
   rpIdHash: Uint8Array<ArrayBuffer>,
   clientDataHash: Uint8Array<ArrayBuffer>,
   newSignCounter: number,
   credential: PublicKeyCredentialSource,
   interactionResponse: InteractionResponse,
-  stateless: boolean,
+  backupFlags: BackupFlags,
   extensions: object | undefined,
 ): { authData: Uint8Array<ArrayBuffer>; signature: Uint8Array<ArrayBuffer> } {
   const authenticatorData = {
@@ -529,8 +548,7 @@ function getAssertion(
     flags: {
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
-      backupEligibility: !stateless,
-      backupState: !stateless,
+      ...getBackupFlags(backupFlags),
       attestedCredentialData: false,
       extensionData: Boolean(extensions),
     },
@@ -608,11 +626,13 @@ function makeCredential(
   alg: keyof typeof COSEAlgorithmIdentifier,
   transports: AuthenticatorTransport[],
   interactionResponse: InteractionResponse,
+  backupFlags: BackupFlags,
   user: PublicKeyCredentialUserEntity | undefined,
   statelessKey: Uint8Array<ArrayBuffer> | undefined,
   credRandom: Uint8Array<ArrayBuffer> | undefined,
   extensions: object | undefined,
 ): PasskeyCredential {
+  const backup = getBackupFlags(backupFlags);
   const generatekeyPair = (alg: keyof typeof COSEAlgorithmIdentifier) => {
     if (alg === "RS256") return generateKeyPairSync("rsa", { modulusLength: 2048 });
     if (alg === "EdDSA") return generateKeyPairSync("ed25519");
@@ -622,7 +642,10 @@ function makeCredential(
   const keyPair = generatekeyPair(alg);
   const privateKey = new Uint8Array(keyPair.privateKey.export({ format: "der", type: "pkcs8" }));
   const credentialId = statelessKey
-    ? encryptBytes(statelessKey, EncodeUtils.encodeCbor(credRandom ? { privateKey, credRandom } : { privateKey }))
+    ? encryptBytes(
+        statelessKey,
+        EncodeUtils.encodeCbor({ privateKey, ...backup, ...(credRandom ? { credRandom } : {}) }),
+      )
     : new Uint8Array(randomBytes(32));
 
   const publicKeyCredentialSource: PublicKeyCredentialSource = {
@@ -643,8 +666,7 @@ function makeCredential(
   const authenticatorData: AuthenticatorData = {
     rpIdHash: rpId.hash,
     flags: {
-      backupEligibility: !statelessKey,
-      backupState: !statelessKey,
+      ...backup,
       userPresent: interactionResponse.options.up,
       userVerified: interactionResponse.options.uv,
       attestedCredentialData: true,
