@@ -1,34 +1,21 @@
-import type { VerifyAuthenticationResponseOpts, VerifyRegistrationResponseOpts } from "@simplewebauthn/server";
+import { randomBytes } from "node:crypto";
 import {
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
-} from "@simplewebauthn/server";
-import { toExtensionInputsJSON } from "../../src/webauthn/webauthn-model-json";
+  type VerifiedCredential,
+  verifyAuthentication,
+  verifyRegistration,
+  WebAuthnVerificationError,
+} from "../../src";
 import type { PasskeysApiClient, PasskeysUser } from "../integration/passkeys-api-client";
-
-type UserModel = {
-  id: string;
-  username: string;
-};
-
-type CredentialRecord = {
-  id: string;
-  publicKey: Uint8Array<ArrayBuffer>;
-  user: UserModel;
-  webauthnUserID: string;
-  counter: number;
-  backedUp: boolean;
-  transports?: AuthenticatorTransport[];
-};
 
 export const TEST_RP_ORIGIN = "https://test-rp.com";
 export const TEST_RP_ID = "test-rp.com";
 
+/** In-memory test RP, limited to the emulator's none attestation and ES256/EdDSA/RS256 keys. */
 export class WebAuthnTestServer implements PasskeysApiClient {
-  private challenges: Set<string> = new Set();
-  private credentials: CredentialRecord[] = [];
+  // Tests intentionally reuse options to exercise multiple responses to the same challenge.
+  private registrationChallenges = new Map<string, string>();
+  private authenticationChallenge?: string;
+  private credentials = new Map<string, VerifiedCredential>();
 
   constructor(
     public origin = TEST_RP_ORIGIN,
@@ -36,81 +23,68 @@ export class WebAuthnTestServer implements PasskeysApiClient {
   ) {}
 
   async getRegistrationOptions(user: PasskeysUser): Promise<PublicKeyCredentialCreationOptionsJSON> {
-    const options = await generateRegistrationOptions({
-      rpName: "Test RP",
-      rpID: this.rpID,
-      userName: user.username,
-      attestationType: "none",
-      excludeCredentials: this.credentials.map((cred) => ({
-        id: cred.id,
-        type: "public-key",
-      })),
+    const challenge = randomBytes(32).toString("base64url");
+    this.registrationChallenges.set(user.id, challenge);
+    return {
+      challenge,
+      rp: { name: "Test RP", id: this.rpID },
+      user: { id: randomBytes(32).toString("base64url"), name: user.username, displayName: "" },
+      pubKeyCredParams: [-8, -7, -257].map((alg) => ({ type: "public-key", alg })),
+      timeout: 60_000,
+      attestation: "none",
+      excludeCredentials: this.credentialDescriptors(),
       authenticatorSelection: {
         residentKey: "preferred",
+        requireResidentKey: false,
         userVerification: "preferred",
         authenticatorAttachment: "platform",
       },
-    });
-    options.user.id;
-    this.challenges.add(options.challenge);
-    return {
-      ...options,
-      extensions: toExtensionInputsJSON(options.extensions as AuthenticationExtensionsClientInputs),
+      extensions: { credProps: true },
     };
   }
 
   async getRegistrationVerification(user: PasskeysUser, response: RegistrationResponseJSON): Promise<void> {
-    const verification = await verifyRegistrationResponse({
-      response: response as VerifyRegistrationResponseOpts["response"],
-      expectedChallenge: (challenge) => this.challenges.has(challenge),
+    const expectedChallenge = this.registrationChallenges.get(user.id);
+    if (!expectedChallenge) throw new WebAuthnVerificationError("INVALID_OPTIONS", "Registration options are required");
+    const { credential } = verifyRegistration({
+      response,
       expectedOrigin: this.origin,
       expectedRPID: this.rpID,
+      expectedChallenge,
+      supportedAlgorithmIDs: [-8, -7, -257],
     });
-
-    if (!verification.verified || !verification.registrationInfo) throw new Error("Registration verification failed");
-    const registrationInfo = verification.registrationInfo;
-    this.credentials.push({
-      id: response.id,
-      publicKey: registrationInfo.credential.publicKey as Uint8Array<ArrayBuffer>,
-      user,
-      webauthnUserID: user.id,
-      counter: registrationInfo.credential.counter,
-      backedUp: false,
-      transports: undefined,
-    });
+    this.credentials.set(credential.id, credential);
   }
 
   async getAuthenticationOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
-    const options = await generateAuthenticationOptions({
-      rpID: this.rpID,
-      allowCredentials: this.credentials.map((cred) => ({
-        id: cred.id,
-        type: "public-key",
-      })),
-    });
-    this.challenges.add(options.challenge);
+    const challenge = randomBytes(32).toString("base64url");
+    this.authenticationChallenge = challenge;
     return {
-      ...options,
-      extensions: toExtensionInputsJSON(options.extensions as AuthenticationExtensionsClientInputs),
+      rpId: this.rpID,
+      challenge,
+      allowCredentials: this.credentialDescriptors(),
+      timeout: 60_000,
+      userVerification: "preferred",
     };
   }
 
   async getAuthenticationVerification(response: AuthenticationResponseJSON): Promise<void> {
-    const credential = this.credentials.find((cred) => cred.id === response.id);
+    const credential = this.credentials.get(response.id);
     if (!credential) throw new Error("Credential not found");
-
-    const verification = await verifyAuthenticationResponse({
-      response: response as VerifyAuthenticationResponseOpts["response"],
-      expectedChallenge: (challenge) => this.challenges.has(challenge),
+    if (!this.authenticationChallenge)
+      throw new WebAuthnVerificationError("INVALID_OPTIONS", "Authentication options are required");
+    const result = verifyAuthentication({
+      response,
+      credential,
       expectedOrigin: this.origin,
       expectedRPID: this.rpID,
-      credential: {
-        id: credential.id,
-        publicKey: credential.publicKey,
-        counter: credential.counter,
-        transports: credential.transports,
-      },
+      expectedChallenge: this.authenticationChallenge,
     });
-    if (!verification.verified) throw new Error("Authentication verification failed");
+    credential.counter = result.newCounter;
+    credential.backupState = result.backupState;
+  }
+
+  private credentialDescriptors(): PublicKeyCredentialDescriptorJSON[] {
+    return [...this.credentials.keys()].map((id) => ({ id, type: "public-key" }));
   }
 }

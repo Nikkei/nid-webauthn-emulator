@@ -94,6 +94,83 @@ const authenticatorRequest = packMakeCredentialRequest({
 const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
 ```
 
+## Verifying registration and authentication responses
+
+`verifyRegistration` and `verifyAuthentication` are synchronous APIs that check WebAuthn registration and authentication responses against the RP's expected values. Registration returns a verified credential; authentication verifies the signature using the registered public key and returns the counter and authenticator flags.
+
+Both functions are stateless and accept the JSON responses returned by `createJSON` / `getJSON` or `PublicKeyCredential.toJSON()`. They require an exact `expectedChallenge` (unpadded Base64URL), `expectedOrigin`, and `expectedRPID` supplied from the caller's trusted ceremony state.
+
+```TypeScript
+import { randomBytes } from "node:crypto";
+import WebAuthnEmulator, {
+  verifyRegistration,
+  verifyAuthentication,
+  type VerifiedCredential,
+} from "nid-webauthn-emulator";
+
+const emulator = new WebAuthnEmulator();
+const origin = "https://example.com";
+const rpId = "example.com";
+const expected = { expectedOrigin: origin, expectedRPID: rpId };
+const creationOptions: PublicKeyCredentialCreationOptionsJSON = {
+  challenge: randomBytes(32).toString("base64url"),
+  rp: { id: rpId, name: "Example" },
+  user: { id: "dGVzdA", name: "test", displayName: "Test user" },
+  pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+  authenticatorSelection: { userVerification: "required" },
+  attestation: "none",
+};
+const registration = verifyRegistration({
+  response: emulator.createJSON(origin, creationOptions),
+  expectedChallenge: creationOptions.challenge,
+  supportedAlgorithmIDs: creationOptions.pubKeyCredParams.map(({ alg }) => alg),
+  ...expected,
+});
+const credential: VerifiedCredential = JSON.parse(JSON.stringify(registration.credential));
+
+const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+  challenge: randomBytes(32).toString("base64url"),
+  rpId,
+  allowCredentials: [{ id: credential.id, type: "public-key" }],
+  userVerification: "required",
+};
+const authentication = verifyAuthentication({
+  response: emulator.getJSON(origin, requestOptions),
+  credential,
+  expectedChallenge: requestOptions.challenge,
+  ...expected,
+});
+credential.counter = authentication.newCounter;
+credential.backupState = authentication.backupState;
+```
+
+`VerifiedCredential` is JSON-serializable: `publicKey` contains the Base64URL-encoded COSE key, together with `id`, `algorithm`, `counter`, `backupEligible`, and `backupState`. Authentication never mutates the supplied credential. Persist `newCounter` and `backupState` only after successful verification. Both results also expose `userPresent`, `userVerified`, `backupEligible`, and `backupState`.
+
+The supported scope is:
+
+- Registration with `none` attestation and an empty attestation statement. Credential IDs must be between 1 and 1023 bytes.
+- ES256 (P-256 / DER signatures), EdDSA (Ed25519), and RS256 (RSA keys of at least 2048 bits). Pass the algorithms offered in `pubKeyCredParams` as `supportedAlgorithmIDs`; omission allows all three supported algorithms.
+- User presence is always required. `requireUserVerification` defaults to `true` on both functions; set it to `false` when UV is optional. This setting does not alter the signed data or skip signature verification.
+- Counters must increase unless both the saved and received values are zero. Backup eligibility must stay unchanged; backup state may change.
+- Authenticator extension data is checked as a CBOR map and included in authentication signature verification. Individual extension semantics, such as PRF output correctness, are outside this verifier's scope.
+
+Failures throw `WebAuthnVerificationError`. Use its `code` for assertions or branching; `message` is diagnostic and `cause` may contain an underlying parsing or cryptographic error.
+
+| Code                                                                                | Meaning                                                     |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `INVALID_OPTIONS`                                                                   | Missing or invalid expectations, policy, or saved state     |
+| `INVALID_RESPONSE`, `INVALID_PUBLIC_KEY`                                            | Malformed response or public key                            |
+| `CHALLENGE_MISMATCH`, `ORIGIN_MISMATCH`, `RP_ID_MISMATCH`, `CREDENTIAL_ID_MISMATCH` | Response does not match the expected ceremony or credential |
+| `USER_PRESENCE_REQUIRED`, `USER_VERIFICATION_REQUIRED`                              | A required flag is absent                                   |
+| `UNSUPPORTED_ATTESTATION`, `UNSUPPORTED_ALGORITHM`, `UNSUPPORTED_CROSS_ORIGIN`      | Response uses an unsupported feature                        |
+| `ALGORITHM_NOT_ALLOWED`                                                             | Credential algorithm was not in `supportedAlgorithmIDs`     |
+| `INVALID_BACKUP_FLAGS`, `BACKUP_ELIGIBILITY_MISMATCH`                               | Inconsistent backup flags or changed eligibility            |
+| `COUNTER_NOT_INCREASED`, `INVALID_SIGNATURE`                                        | Counter check or cryptographic verification failed          |
+
+The caller manages challenge generation, lifetime and single-use consumption, session/account association, credential ownership and `userHandle` checks, and storage.
+
+Cross-origin ceremonies, attestation certificate chains, and metadata trust evaluation are not implemented. Protocol field and COSE interpretation are separate from the emulator's helpers; the basic CBOR decoder is shared and covered by fixed verification vectors.
+
 ## Example with [WebAuthn.io](https://webauthn.io/)
 
 Here's an example of usage with [webauthn.io](https://webauthn.io/), a well-known WebAuthn demo site. You can find working test code examples in the [integration tests](spec/integration/integration.spec.ts).

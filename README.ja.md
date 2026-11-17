@@ -93,6 +93,83 @@ const authenticatorRequest = packMakeCredentialRequest({
 const authenticatorResponse = unpackMakeCredentialResponse(this.authenticator.command(authenticatorRequest));
 ```
 
+## 登録・認証レスポンスの検証
+
+`verifyRegistration` と `verifyAuthentication` は、WebAuthnの登録・認証レスポンスをRP側の期待値と照合する同期APIです。登録時には検証済みのcredentialを返し、認証時には登録済み公開鍵で署名を検証して、カウンターと認証器のフラグを返します。
+
+両関数は状態を持たず、`createJSON` / `getJSON` または `PublicKeyCredential.toJSON()` のJSONレスポンスを受け取ります。呼び出し側で保持した登録・認証処理の期待値として、`expectedChallenge`（パディングなしBase64URL）、`expectedOrigin`、`expectedRPID` を明示的に渡します。
+
+```TypeScript
+import { randomBytes } from "node:crypto";
+import WebAuthnEmulator, {
+  verifyRegistration,
+  verifyAuthentication,
+  type VerifiedCredential,
+} from "nid-webauthn-emulator";
+
+const emulator = new WebAuthnEmulator();
+const origin = "https://example.com";
+const rpId = "example.com";
+const expected = { expectedOrigin: origin, expectedRPID: rpId };
+const creationOptions: PublicKeyCredentialCreationOptionsJSON = {
+  challenge: randomBytes(32).toString("base64url"),
+  rp: { id: rpId, name: "Example" },
+  user: { id: "dGVzdA", name: "test", displayName: "Test user" },
+  pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+  authenticatorSelection: { userVerification: "required" },
+  attestation: "none",
+};
+const registration = verifyRegistration({
+  response: emulator.createJSON(origin, creationOptions),
+  expectedChallenge: creationOptions.challenge,
+  supportedAlgorithmIDs: creationOptions.pubKeyCredParams.map(({ alg }) => alg),
+  ...expected,
+});
+const credential: VerifiedCredential = JSON.parse(JSON.stringify(registration.credential));
+
+const requestOptions: PublicKeyCredentialRequestOptionsJSON = {
+  challenge: randomBytes(32).toString("base64url"),
+  rpId,
+  allowCredentials: [{ id: credential.id, type: "public-key" }],
+  userVerification: "required",
+};
+const authentication = verifyAuthentication({
+  response: emulator.getJSON(origin, requestOptions),
+  credential,
+  expectedChallenge: requestOptions.challenge,
+  ...expected,
+});
+credential.counter = authentication.newCounter;
+credential.backupState = authentication.backupState;
+```
+
+`VerifiedCredential` はJSONで保存・復元できます。`publicKey` はBase64URL形式のCOSE公開鍵で、ほかに `id`、`algorithm`、`counter`、`backupEligible`、`backupState` を持ちます。認証検証は渡されたcredentialを変更しません。成功後にだけ、戻り値の `newCounter` と `backupState` を保存してください。登録・認証の戻り値には、`userPresent`、`userVerified`、`backupEligible`、`backupState` も含まれます。
+
+対応範囲と検証方針は以下のとおりです。
+
+- 登録は `none` attestationのみ対応し、attestation statementは空を要求します。credential IDの長さは1〜1023バイトです。
+- 対応鍵はES256（P-256、署名はDER形式）、EdDSA（Ed25519）、RS256（2048ビット以上のRSA鍵）です。`supportedAlgorithmIDs` には登録時の `pubKeyCredParams` で提示したアルゴリズムを渡します。省略時はこの3種類を許可します。
+- UP（ユーザー操作）は常に必須です。`requireUserVerification` は両関数でデフォルト `true`、UVを任意にする場合は `false` を指定します。署名対象の変更や署名検証の省略は行いません。
+- カウンターは保存値・受信値が両方0の場合を除き、増加を要求します。バックアップ可否（BE）の変化は拒否し、バックアップ状態（BS）の変化は許可します。
+- 認証器の拡張データはCBORマップとして検査し、認証署名の対象に含めます。PRFの計算結果など、個々の拡張の意味は検証しません。
+
+失敗時は `WebAuthnVerificationError` を投げます。分岐やテストのassertには `code` を使用してください。`message` は診断用で、下位のパーサー・暗号処理のエラーが `cause` に入る場合があります。
+
+| コード                                                                              | 意味                                             |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `INVALID_OPTIONS`                                                                   | 期待値・検証方針・保存状態の欠落や不正           |
+| `INVALID_RESPONSE`、`INVALID_PUBLIC_KEY`                                            | レスポンスや公開鍵の形式が不正                   |
+| `CHALLENGE_MISMATCH`、`ORIGIN_MISMATCH`、`RP_ID_MISMATCH`、`CREDENTIAL_ID_MISMATCH` | 期待する登録・認証処理やcredentialとの不一致     |
+| `USER_PRESENCE_REQUIRED`、`USER_VERIFICATION_REQUIRED`                              | 必須フラグがない                                 |
+| `UNSUPPORTED_ATTESTATION`、`UNSUPPORTED_ALGORITHM`、`UNSUPPORTED_CROSS_ORIGIN`      | 未対応の形式・機能                               |
+| `ALGORITHM_NOT_ALLOWED`                                                             | `supportedAlgorithmIDs` に含まれないアルゴリズム |
+| `INVALID_BACKUP_FLAGS`、`BACKUP_ELIGIBILITY_MISMATCH`                               | バックアップフラグの矛盾やBEの変化               |
+| `COUNTER_NOT_INCREASED`、`INVALID_SIGNATURE`                                        | カウンター検査や署名検証の失敗                   |
+
+challengeの生成・期限・一度限りの消費、セッションやアカウントとの紐付け、credentialの所有者と `userHandle` の確認、永続化は呼び出し側の責務です。
+
+cross-originの処理、attestationの証明書チェーン、メタデータの信頼性評価は実装していません。プロトコルのフィールドとCOSE鍵の解釈はエミュレーターのヘルパーから分離し、共有するCBORの基本デコーダーは固定ベクトルでも検証しています。
+
 ## [WebAuthn.io](https://webauthn.io/) での実行例
 
 WebAuthn の著名なデモサイトである [webauthn.io](https://webauthn.io/) での使用例を示します。[統合テスト](spec/integration/integration.spec.ts) に実際にうごくテストコード例があります。
