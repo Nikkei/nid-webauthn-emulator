@@ -7,7 +7,7 @@ export function parseCreationOptionsFromJSON(
   return {
     rp: optionsJSON.rp,
     user: parsePublicKeyCredentialUserEntityFromJSON(optionsJSON.user),
-    challenge: decodeBase64Url(optionsJSON.challenge),
+    challenge: decodeBase64UrlJSON(optionsJSON.challenge),
     pubKeyCredParams: optionsJSON.pubKeyCredParams,
     timeout: optionsJSON.timeout,
     excludeCredentials: optionsJSON.excludeCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
@@ -22,7 +22,7 @@ export function parseRequestOptionsFromJSON(
   optionsJSON: PublicKeyCredentialRequestOptionsJSON,
 ): PublicKeyCredentialRequestOptions {
   return {
-    challenge: decodeBase64Url(optionsJSON.challenge),
+    challenge: decodeBase64UrlJSON(optionsJSON.challenge),
     timeout: optionsJSON.timeout,
     rpId: optionsJSON.rpId,
     allowCredentials: optionsJSON.allowCredentials?.map(parsePublicKeyCredentialDescriptorFromJSON),
@@ -175,7 +175,7 @@ export function parsePublicKeyCredentialDescriptorFromJSON(
   credential: PublicKeyCredentialDescriptorJSON,
 ): PublicKeyCredentialDescriptor {
   return {
-    id: decodeBase64Url(credential.id),
+    id: decodeBase64UrlJSON(credential.id),
     type: credential.type as PublicKeyCredentialType,
     transports: credential.transports as AuthenticatorTransport[],
   };
@@ -190,15 +190,15 @@ export function toPublicKeyCredentialUserEntityJSON(
 export function parsePublicKeyCredentialUserEntityFromJSON(
   user: PublicKeyCredentialUserEntityJSON,
 ): PublicKeyCredentialUserEntity {
-  return { ...user, id: decodeBase64Url(user.id) };
+  return { ...user, id: decodeBase64UrlJSON(user.id) };
 }
 
 export function parsePRFValuesFromJSON(
   values: AuthenticationExtensionsPRFValuesJSON,
 ): AuthenticationExtensionsPRFValues {
-  const parsed: AuthenticationExtensionsPRFValues = { first: decodeBase64Url(values.first) };
+  const parsed: AuthenticationExtensionsPRFValues = { first: decodeBase64UrlJSON(values.first) };
   if (values.second !== undefined) {
-    parsed.second = decodeBase64Url(values.second);
+    parsed.second = decodeBase64UrlJSON(values.second);
   }
   return parsed;
 }
@@ -296,6 +296,14 @@ export function toExtensionInputsJSON(
 }
 
 // Helper functions
+
+// Keep JSON parsing errors separate from the raw decoder used by other APIs.
+export function decodeBase64UrlJSON(value: string): ArrayBuffer {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]*$/.test(value) || value.length % 4 === 1) {
+    throw new DOMException("Expected an unpadded base64url string without whitespace", "EncodingError");
+  }
+  return decodeBase64Url(value);
+}
 
 export function encodeBase64Url(buffer: BufferSource): string {
   const toArrayBuffer = (bufferSource: BufferSource): ArrayBuffer => {
