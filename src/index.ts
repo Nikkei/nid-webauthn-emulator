@@ -18,6 +18,7 @@ export * from "./webauthn/cose-key";
 export * from "./webauthn/webauthn-emulator";
 export * from "./webauthn/webauthn-model";
 export * from "./webauthn/webauthn-model-json";
+export * from "./webauthn/webauthn-verifier";
 
 export const BrowserInjection = {
   WebAuthnEmulatorGet,
