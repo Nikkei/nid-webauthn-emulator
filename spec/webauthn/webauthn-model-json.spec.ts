@@ -56,6 +56,52 @@ describe("WebAuthn JSON Model Test", () => {
     },
   };
 
+  test("rejects malformed base64url throughout registration and authentication options with EncodingError", () => {
+    const creation = toCreationOptionsJSON(creationOption);
+    const request = toRequestOptionsJSON(requestOption);
+    for (const invalid of ["!", "a", "YQ==", "Y Q", "YQ\n", "+w", "/w"]) {
+      const creationCases: PublicKeyCredentialCreationOptionsJSON[] = [
+        { ...creation, challenge: invalid },
+        { ...creation, user: { ...creation.user, id: invalid } },
+        { ...creation, excludeCredentials: [{ type: "public-key", id: invalid }] },
+        { ...creation, extensions: { prf: { eval: { first: invalid } } } },
+        { ...creation, extensions: { prf: { eval: { first: "YQ", second: invalid } } } },
+      ];
+      const requestCases: PublicKeyCredentialRequestOptionsJSON[] = [
+        { ...request, challenge: invalid },
+        { ...request, allowCredentials: [{ type: "public-key", id: invalid }] },
+        { ...request, extensions: { prf: { eval: { first: invalid } } } },
+        { ...request, extensions: { prf: { eval: { first: "YQ", second: invalid } } } },
+        { ...request, extensions: { prf: { evalByCredential: { YQ: { first: invalid } } } } },
+        { ...request, extensions: { prf: { evalByCredential: { YQ: { first: "YQ", second: invalid } } } } },
+      ];
+      for (const options of creationCases) {
+        assert.throws(() => parseCreationOptionsFromJSON(options), { name: "EncodingError" });
+      }
+      for (const options of requestCases) {
+        assert.throws(() => parseRequestOptionsFromJSON(options), { name: "EncodingError" });
+      }
+    }
+  });
+
+  test("decodes unpadded base64url and empty PRF inputs without changing the JSON input", () => {
+    const json: PublicKeyCredentialRequestOptionsJSON = {
+      challenge: "-_8",
+      allowCredentials: [{ type: "public-key", id: "YQ" }],
+      extensions: { prf: { eval: { first: "", second: "YWI" }, evalByCredential: { YQ: { first: "YWJj" } } } },
+    };
+    const before = JSON.stringify(json);
+    const options = parseRequestOptionsFromJSON(json);
+    assert.deepEqual(new Uint8Array(options.challenge as ArrayBuffer), Uint8Array.of(251, 255));
+    assert.deepEqual(new Uint8Array(options.allowCredentials?.[0].id as ArrayBuffer), Uint8Array.of(97));
+    assert.deepEqual(options.extensions?.prf?.eval, {
+      first: new ArrayBuffer(0),
+      second: Uint8Array.of(97, 98).buffer,
+    });
+    assert.deepEqual(options.extensions?.prf?.evalByCredential?.YQ.first, Uint8Array.of(97, 98, 99).buffer);
+    assert.equal(JSON.stringify(json), before);
+  });
+
   test("Create Option JSON Serialize Deserialize test", async () => {
     for (const option of [creationOption, creationOptionPrf]) {
       const json = toCreationOptionsJSON(option);
