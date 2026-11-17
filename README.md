@@ -306,7 +306,7 @@ import { createPasskeysEmulator } from "nid-webauthn-emulator";
 const { methods, addPasskey } = createPasskeysEmulator({
   origin: "http://localhost",
   rpId: "localhost",
-  autofill: true, // returns false from isConditionalMediationAvailable when set to false
+  autofill: true, // controls isConditionalMediationAvailable() and the conditionalGet capability
   // specify creationException / requestException to inject a DOMException
 });
 

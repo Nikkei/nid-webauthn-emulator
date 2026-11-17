@@ -29,6 +29,17 @@ export const HookWebAuthnApis = `
   }
   
   PublicKeyCredential.isConditionalMediationAvailable = async () => true;
+
+  PublicKeyCredential.getClientCapabilities = async () => ({
+    conditionalCreate: true,
+    conditionalGet: await PublicKeyCredential.isConditionalMediationAvailable(),
+    "extension:credProps": true,
+    "extension:prf": true,
+    hybridTransport: false,
+    signalAllAcceptedCredentials: typeof window.${WebAuthnEmulatorSignalAllAcceptedCredentials} === "function",
+    signalCurrentUserDetails: typeof window.${WebAuthnEmulatorSignalCurrentUserDetails} === "function",
+    signalUnknownCredential: typeof window.${WebAuthnEmulatorSignalUnknownCredential} === "function",
+  });
   
   PublicKeyCredential.signalUnknownCredential = async (options) => {
     if (!options || !options.rpId || !options.credentialId) return;

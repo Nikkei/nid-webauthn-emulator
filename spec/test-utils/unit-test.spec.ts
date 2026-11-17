@@ -56,10 +56,26 @@ describe("createPasskeysEmulator", () => {
     const emulator = createPasskeysEmulator();
 
     assert.equal(await emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.(), true);
-    assert.deepEqual(await emulator.methods.publicKeyCredentials.getClientCapabilities(), { conditionalGet: true });
+    const capabilities = await emulator.methods.publicKeyCredentials.getClientCapabilities();
+    assert.deepEqual(capabilities, {
+      conditionalCreate: true,
+      conditionalGet: true,
+      "extension:credProps": true,
+      "extension:prf": true,
+      hybridTransport: false,
+      passkeyPlatformAuthenticator: true,
+      relatedOrigins: false,
+      signalAllAcceptedCredentials: true,
+      signalCurrentUserDetails: true,
+      signalUnknownCredential: true,
+      userVerifyingPlatformAuthenticator: true,
+    });
+    assert.deepEqual(Object.keys(capabilities), Object.keys(capabilities).sort());
     assert.equal(await emulator.methods.publicKeyCredentials.isUserVerifyingPlatformAuthenticatorAvailable(), true);
     assert.equal(emulator.methods.publicKeyCredentials.parseCreationOptionsFromJSON, parseCreationOptionsFromJSON);
     assert.equal(emulator.methods.publicKeyCredentials.parseRequestOptionsFromJSON, parseRequestOptionsFromJSON);
+    capabilities.conditionalGet = false;
+    assert.equal((await emulator.methods.publicKeyCredentials.getClientCapabilities()).conditionalGet, true);
   });
 
   test("addPasskey stores credentials for custom rpId and allows authentication", async () => {
@@ -146,5 +162,6 @@ describe("createPasskeysEmulator", () => {
     const emulator = createPasskeysEmulator({ autofill: false });
 
     assert.equal(await emulator.methods.publicKeyCredentials.isConditionalMediationAvailable?.(), false);
+    assert.equal((await emulator.methods.publicKeyCredentials.getClientCapabilities()).conditionalGet, false);
   });
 });
