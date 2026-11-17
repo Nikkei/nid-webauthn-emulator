@@ -94,6 +94,80 @@ describe("CBOR encode/decode edge cases", () => {
     assert.deepEqual(remainder, second);
   });
 
+  test("decodes prototype-related keys as ordinary own properties", () => {
+    const original = JSON.parse('{"__proto__":{"fmt":"none"},"constructor":1,"toString":2,"hasOwnProperty":3}');
+    const decoded = EncodeUtils.decodeCbor<Record<string, unknown>>(EncodeUtils.encodeCbor(original));
+
+    assert.equal(Object.getPrototypeOf(decoded), Object.prototype);
+    assert.equal(Object.hasOwn(decoded, "__proto__"), true);
+    assert.equal(decoded.fmt, undefined);
+    assert.deepEqual(decoded, original);
+    assert.deepEqual(EncodeUtils.encodeCbor(decoded), EncodeUtils.encodeCbor(original));
+  });
+
+  test("rejects duplicate keys, including different integer widths and nested maps", () => {
+    for (const hex of [
+      "a201010102", // {1: 1, 1: 2}
+      "a2616101616102", // {"a": 1, "a": 2}
+      "a20101180102", // The second 1 uses an extra integer byte.
+      "a22001380002", // The second -1 uses an extra integer byte.
+      "a26161f7616102", // The first value is undefined.
+      "a16178a201010102", // {"x": {1: 1, 1: 2}}
+      "81a201010102", // [{1: 1, 1: 2}]
+    ]) {
+      const encoded = Buffer.from(hex, "hex");
+      for (const mapType of ["object", "map"] as const) {
+        assert.throws(() => EncodeUtils.decodeCbor(encoded, { mapType }), /Duplicate CBOR map key/);
+        assert.throws(
+          () => EncodeUtils.decodeCborWithRemainder(Buffer.concat([encoded, Buffer.from([0])]), { mapType }),
+          /Duplicate CBOR map key/,
+        );
+      }
+    }
+  });
+
+  test("rejects distinct keys that would collide in an object", () => {
+    for (const hex of ["a20101613102", "a26131020101", "a22001622d3102", "a2622d31022001"]) {
+      const encoded = Buffer.from(hex, "hex");
+      assert.throws(() => EncodeUtils.decodeCbor(encoded), /CBOR map keys collide in object representation/);
+      assert.throws(
+        () => EncodeUtils.decodeCborWithRemainder(encoded),
+        /CBOR map keys collide in object representation/,
+      );
+    }
+  });
+
+  test("map mode preserves integer and text key types, including nested maps in arrays", () => {
+    const encoded = Buffer.from("a401016131022003622d3104", "hex"); // {1: 1, "1": 2, -1: 3, "-1": 4}
+    const expected = new Map<string | number, number>([
+      [1, 1],
+      ["1", 2],
+      [-1, 3],
+      ["-1", 4],
+    ]);
+    assert.deepEqual(EncodeUtils.decodeCbor(encoded, { mapType: "map" }), expected);
+
+    const nested = Buffer.concat([Buffer.from("a1617881", "hex"), encoded]); // {"x": [encoded]}
+    assert.deepEqual(EncodeUtils.decodeCbor(nested, { mapType: "map" }), new Map([["x", [expected]]]));
+    const trailing = Buffer.from("a201010102", "hex"); // Intentionally invalid, but outside the first data item.
+    assert.deepEqual(EncodeUtils.decodeCborWithRemainder(Buffer.concat([nested, trailing]), { mapType: "map" }), {
+      value: new Map([["x", [expected]]]),
+      remainder: trailing,
+    });
+    assert.throws(
+      () => EncodeUtils.decodeCbor(Buffer.concat([nested, trailing]), { mapType: "map" }),
+      /Unexpected trailing CBOR data/,
+    );
+  });
+
+  test("map mode preserves __proto__ as an entry without changing the Map prototype", () => {
+    const encoded = Buffer.from("a1695f5f70726f746f5f5fa163666d74646e6f6e65", "hex");
+    const decoded = EncodeUtils.decodeCbor<Map<string, unknown>>(encoded, { mapType: "map" });
+    assert.equal(Object.getPrototypeOf(decoded), Map.prototype);
+    assert.deepEqual(decoded.get("__proto__"), new Map([["fmt", "none"]]));
+    assert.equal(decoded.has("fmt"), false);
+  });
+
   test("rejects unsupported values and malformed input", () => {
     assert.throws(() => EncodeUtils.encodeCbor(Symbol("unsupported") as unknown as object), {
       message: "Unsupported CBOR value type: symbol",
