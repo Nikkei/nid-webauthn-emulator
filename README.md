@@ -22,7 +22,7 @@ npm install nid-webauthn-emulator
 Basic usage involves creating a `WebAuthnEmulator` class and using the `create` and `get` methods to emulate `navigator.credentials.create` and `navigator.credentials.get` from the WebAuthn API.
 
 ```TypeScript
-import WebAuthnEmulator from "nid-webauthn-emulator";
+import { WebAuthnEmulator } from "nid-webauthn-emulator";
 
 const emulator = new WebAuthnEmulator();
 const origin = "https://example.com";
@@ -54,7 +54,7 @@ The `WebAuthnEmulator` class emulates the following FIDO2/CTAP Authenticator by 
 These settings can be changed by creating an `AuthenticatorEmulator` class and passing it to the `WebAuthnEmulator` class to modify the Authenticator behavior as follows:
 
 ```TypeScript
-import WebAuthnEmulator, { AuthenticatorEmulator } from "nid-webauthn-emulator";
+import { WebAuthnEmulator, AuthenticatorEmulator } from "nid-webauthn-emulator";
 
 const authenticator = new AuthenticatorEmulator({
   algorithmIdentifiers: ["ES256"],
@@ -102,7 +102,8 @@ Both functions are stateless and accept the JSON responses returned by `createJS
 
 ```TypeScript
 import { randomBytes } from "node:crypto";
-import WebAuthnEmulator, {
+import {
+  WebAuthnEmulator,
   verifyRegistration,
   verifyAuthentication,
   type VerifiedCredential,
@@ -208,7 +209,8 @@ await webauthnIO.getAuthenticationVerification(requestCredential);
 This library is intended for use in Passkeys E2E testing, particularly with Playwright. For Playwright testing, you can easily use the WebAuthn API emulator with the utility class `BrowserInjection`. Here's how to use it:
 
 ```TypeScript
-import WebAuthnEmulator, {
+import {
+  WebAuthnEmulator,
   BrowserInjection,
   type PublicKeyCredentialCreationOptionsJSON,
   type PublicKeyCredentialRequestOptionsJSON,
