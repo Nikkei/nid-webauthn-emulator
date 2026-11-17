@@ -404,6 +404,114 @@ for (const vector of vectors) {
   });
 }
 
+describe("CBOR verification boundaries", () => {
+  // Encode keys as values to retain their CBOR types and allow deliberate duplicate keys.
+  function encodeMapEntries(entries: [unknown, unknown][]): Buffer<ArrayBuffer> {
+    assert.ok(entries.length < 24);
+    return Buffer.concat([
+      Buffer.from([0xa0 + entries.length]),
+      ...entries.flatMap(([key, value]) => [encodeCbor([key]).subarray(1), encodeCbor([value]).subarray(1)]),
+    ]);
+  }
+
+  test("rejects attestation fields supplied through __proto__", () => {
+    const response = structuredClone(vectors[0].registration);
+    const attestation = decodeCbor<Attestation>(Buffer.from(response.response.attestationObject, "base64url"));
+    response.response.attestationObject = encodeMapEntries([["__proto__", attestation]]).toString("base64url");
+    assert.throws(() => verifyRegistration({ response, ...expected }), failure("UNSUPPORTED_ATTESTATION"));
+  });
+
+  test("does not treat a __proto__ entry as an empty attestation statement", () => {
+    const response = structuredClone(vectors[0].registration);
+    changeAttestation(response, (attestation) => {
+      attestation.attStmt = JSON.parse('{"__proto__":{"sig":"unexpected"}}');
+    });
+    assert.throws(() => verifyRegistration({ response, ...expected }), failure("INVALID_RESPONSE"));
+  });
+
+  test("rejects duplicate attestation fields", () => {
+    const response = structuredClone(vectors[0].registration);
+    const attestation = decodeCbor<Attestation>(Buffer.from(response.response.attestationObject, "base64url"));
+    response.response.attestationObject = encodeMapEntries([
+      ["fmt", "packed"],
+      ...Object.entries(attestation),
+    ]).toString("base64url");
+    assert.throws(() => verifyRegistration({ response, ...expected }), failure("INVALID_RESPONSE"));
+  });
+
+  for (const vector of vectors) {
+    const credential = verifyRegistration({ response: vector.registration, ...expected }).credential;
+    const publicKey = Buffer.from(credential.publicKey, "base64url");
+    const key = decodeCbor<Record<number, unknown>>(publicKey);
+    const entries: [number, unknown][] = Object.entries(key).map(([label, value]) => [Number(label), value]);
+
+    function rejectsKey(
+      encoded: Buffer<ArrayBuffer>,
+      registrationError: WebAuthnVerificationErrorCode,
+      savedKeyError = registrationError,
+    ): void {
+      const response = structuredClone(vector.registration);
+      changeAttestation(response, (attestation) => {
+        const raw = Buffer.from(attestation.authData);
+        const offset = 55 + raw.readUInt16BE(53);
+        attestation.authData = Buffer.concat([
+          raw.subarray(0, offset),
+          encoded,
+          raw.subarray(offset + publicKey.length),
+        ]);
+      });
+      assert.throws(() => verifyRegistration({ response, ...expected }), failure(registrationError));
+      assert.throws(
+        () =>
+          verifyAuthentication({
+            response: vector.authentication,
+            credential: { ...credential, publicKey: encoded.toString("base64url") },
+            ...expected,
+          }),
+        failure(savedKeyError),
+      );
+    }
+
+    test(`${vector.name}: rejects duplicate COSE labels in registration and saved keys`, () => {
+      rejectsKey(encodeMapEntries([...entries, [3, vector.algorithm]]), "INVALID_RESPONSE", "INVALID_PUBLIC_KEY");
+    });
+
+    test(`${vector.name}: rejects COSE fields supplied through __proto__`, () => {
+      rejectsKey(encodeMapEntries([["__proto__", key]]), "UNSUPPORTED_ALGORITHM");
+    });
+
+    for (const [label] of entries) {
+      test(`${vector.name}: rejects text in place of numeric COSE label ${label}`, () => {
+        rejectsKey(
+          encodeMapEntries(entries.map(([k, value]) => [k === label ? String(k) : k, value])),
+          label === 3 ? "UNSUPPORTED_ALGORITHM" : "INVALID_PUBLIC_KEY",
+        );
+      });
+    }
+  }
+
+  test("rejects duplicate extension keys during registration and authentication", () => {
+    const extensions = encodeMapEntries([
+      ["hmac-secret", false],
+      ["hmac-secret", true],
+    ]);
+    const response = structuredClone(vectors[0].registration);
+    const credential = verifyRegistration({ response, ...expected }).credential;
+    changeAttestation(response, (attestation) => {
+      const raw = Buffer.from(attestation.authData);
+      const offset = 55 + raw.readUInt16BE(53) + Buffer.from(credential.publicKey, "base64url").length;
+      attestation.authData = Buffer.concat([raw.subarray(0, offset), extensions]);
+    });
+    assert.throws(() => verifyRegistration({ response, ...expected }), failure("INVALID_RESPONSE"));
+    const authentication = structuredClone(vectors[0].authentication);
+    changeAuthData(authentication, (raw) => Buffer.concat([raw.subarray(0, 37), extensions]));
+    assert.throws(
+      () => verifyAuthentication({ response: authentication, credential, ...expected }),
+      failure("INVALID_RESPONSE"),
+    );
+  });
+});
+
 describe("WebAuthnTestServer state", () => {
   const user = { id: "user", username: "test" };
 

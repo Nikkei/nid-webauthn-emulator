@@ -109,6 +109,14 @@ function record(value: unknown, code: WebAuthnVerificationErrorCode = "INVALID_R
   return value as Record<string, unknown>;
 }
 
+function cborMap(
+  value: unknown,
+  code: WebAuthnVerificationErrorCode = "INVALID_RESPONSE",
+): Map<string | number, unknown> {
+  check(value instanceof Map, code, "Expected a CBOR map");
+  return value;
+}
+
 function bytes(value: unknown, code: WebAuthnVerificationErrorCode = "INVALID_RESPONSE"): Buffer<ArrayBuffer> {
   check(value instanceof Uint8Array && value.length > 0, code, "Expected non-empty bytes");
   return Buffer.from(value);
@@ -181,7 +189,7 @@ function readAuthenticatorData(raw: Buffer<ArrayBuffer>, expected: WebAuthnVerif
 
 function verifyExtensions(remainder: Uint8Array<ArrayBuffer>, flags: number): void {
   if (flags & 0x80) {
-    record(decodeCbor(remainder));
+    cborMap(decodeCbor(remainder, { mapType: "map" }));
   } else {
     check(remainder.length === 0, "INVALID_RESPONSE", "Unexpected authenticator data suffix");
   }
@@ -189,14 +197,14 @@ function verifyExtensions(remainder: Uint8Array<ArrayBuffer>, flags: number): vo
 
 function readPublicKey(value: unknown): { algorithm: WebAuthnVerificationAlgorithm; publicKey: KeyObject } {
   return checked("INVALID_PUBLIC_KEY", "Invalid credential public key", () => {
-    const key = record(value, "INVALID_PUBLIC_KEY");
-    const algorithm = key[3];
+    const key = cborMap(value, "INVALID_PUBLIC_KEY");
+    const algorithm = key.get(3);
     switch (algorithm) {
       case -7: {
-        check(key[1] === 2, "INVALID_PUBLIC_KEY", "ES256 requires an EC2 key");
-        check(key[-1] === 1, "INVALID_PUBLIC_KEY", "ES256 requires P-256");
-        const x = bytes(key[-2], "INVALID_PUBLIC_KEY");
-        const y = bytes(key[-3], "INVALID_PUBLIC_KEY");
+        check(key.get(1) === 2, "INVALID_PUBLIC_KEY", "ES256 requires an EC2 key");
+        check(key.get(-1) === 1, "INVALID_PUBLIC_KEY", "ES256 requires P-256");
+        const x = bytes(key.get(-2), "INVALID_PUBLIC_KEY");
+        const y = bytes(key.get(-3), "INVALID_PUBLIC_KEY");
         check(x.length === 32 && y.length === 32, "INVALID_PUBLIC_KEY", "Invalid P-256 coordinate");
         return {
           algorithm,
@@ -207,9 +215,9 @@ function readPublicKey(value: unknown): { algorithm: WebAuthnVerificationAlgorit
         };
       }
       case -8: {
-        check(key[1] === 1, "INVALID_PUBLIC_KEY", "EdDSA requires an OKP key");
-        check(key[-1] === 6, "INVALID_PUBLIC_KEY", "EdDSA requires Ed25519");
-        const x = bytes(key[-2], "INVALID_PUBLIC_KEY");
+        check(key.get(1) === 1, "INVALID_PUBLIC_KEY", "EdDSA requires an OKP key");
+        check(key.get(-1) === 6, "INVALID_PUBLIC_KEY", "EdDSA requires Ed25519");
+        const x = bytes(key.get(-2), "INVALID_PUBLIC_KEY");
         check(x.length === 32, "INVALID_PUBLIC_KEY", "Invalid Ed25519 key");
         return {
           algorithm,
@@ -220,9 +228,9 @@ function readPublicKey(value: unknown): { algorithm: WebAuthnVerificationAlgorit
         };
       }
       case -257: {
-        check(key[1] === 3, "INVALID_PUBLIC_KEY", "RS256 requires an RSA key");
-        const n = bytes(key[-1], "INVALID_PUBLIC_KEY");
-        const e = bytes(key[-2], "INVALID_PUBLIC_KEY");
+        check(key.get(1) === 3, "INVALID_PUBLIC_KEY", "RS256 requires an RSA key");
+        const n = bytes(key.get(-1), "INVALID_PUBLIC_KEY");
+        const e = bytes(key.get(-2), "INVALID_PUBLIC_KEY");
         check(
           n[0] !== 0 && e[0] !== 0,
           "INVALID_PUBLIC_KEY",
@@ -276,14 +284,14 @@ export function verifyRegistration(options: VerifyRegistrationOptions): Registra
   return checked("INVALID_RESPONSE", "Malformed registration response", () => {
     const { response } = options;
     verifyClientData(response, "webauthn.create", options);
-    const attestation = record(decodeCbor(base64url(response.response.attestationObject)));
-    check(attestation.fmt === "none", "UNSUPPORTED_ATTESTATION", "Only none attestation is supported");
+    const attestation = cborMap(decodeCbor(base64url(response.response.attestationObject), { mapType: "map" }));
+    check(attestation.get("fmt") === "none", "UNSUPPORTED_ATTESTATION", "Only none attestation is supported");
     check(
-      Object.keys(record(attestation.attStmt)).length === 0,
+      cborMap(attestation.get("attStmt")).size === 0,
       "INVALID_RESPONSE",
       "none attestation must have an empty statement",
     );
-    const raw = bytes(attestation.authData);
+    const raw = bytes(attestation.get("authData"));
     const { flags, counter, ...verificationFlags } = readAuthenticatorData(raw, options);
     check(flags & 0x40, "INVALID_RESPONSE", "Attested credential data required");
     check(raw.length >= 55, "INVALID_RESPONSE", "Truncated attested credential data");
@@ -295,7 +303,7 @@ export function verifyRegistration(options: VerifyRegistrationOptions): Registra
       "CREDENTIAL_ID_MISMATCH",
       "Attested credential ID mismatch",
     );
-    const { value, remainder } = decodeCborWithRemainder(raw.subarray(55 + idLength));
+    const { value, remainder } = decodeCborWithRemainder(raw.subarray(55 + idLength), { mapType: "map" });
     const { algorithm } = readPublicKey(value);
     check(allowedAlgorithms.includes(algorithm), "ALGORITHM_NOT_ALLOWED", "Credential algorithm was not offered");
     verifyExtensions(remainder, flags);
@@ -338,7 +346,7 @@ export function verifyAuthentication(options: VerifyAuthenticationOptions): Auth
       "Invalid saved backup state",
     );
     const key = checked("INVALID_PUBLIC_KEY", "Invalid saved public key", () =>
-      readPublicKey(decodeCbor(base64url(credential.publicKey, "INVALID_PUBLIC_KEY"))),
+      readPublicKey(decodeCbor(base64url(credential.publicKey, "INVALID_PUBLIC_KEY"), { mapType: "map" })),
     );
     check(
       credential.algorithm === key.algorithm,

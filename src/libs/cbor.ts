@@ -93,11 +93,19 @@ export function encodeCbor(data: object): Uint8Array<ArrayBuffer> {
   return new Uint8Array(out);
 }
 
+export interface CborDecodeOptions {
+  /** Defaults to object. Use map to retain integer and text key types, including in nested maps. */
+  mapType?: "object" | "map";
+}
+
 class CborReader {
   private offset = 0;
   private readonly textDecoder = new TextDecoder("utf-8", { fatal: true });
 
-  constructor(private readonly data: Uint8Array<ArrayBuffer>) {}
+  constructor(
+    private readonly data: Uint8Array<ArrayBuffer>,
+    private readonly mapType: "object" | "map" = "object",
+  ) {}
 
   read(): unknown {
     const value = this.readValue();
@@ -189,14 +197,27 @@ class CborReader {
     return values;
   }
 
-  private readMap(length: number): Record<string | number, unknown> {
-    const value: Record<string | number, unknown> = {};
+  private readMap(length: number): Record<string | number, unknown> | Map<string | number, unknown> {
+    const entries = new Map<string | number, unknown>();
     for (let i = 0; i < length; i++) {
       const key = this.readValue();
       if (typeof key !== "string" && typeof key !== "number") {
         throw new Error("Unsupported CBOR map key type");
       }
-      value[key] = this.readValue();
+      if (entries.has(key)) {
+        throw new Error("Duplicate CBOR map key");
+      }
+      entries.set(key, this.readValue());
+    }
+    if (this.mapType === "map") return entries;
+
+    const value: Record<string | number, unknown> = {};
+    for (const [key, item] of entries) {
+      if (Object.hasOwn(value, key)) {
+        throw new Error("CBOR map keys collide in object representation");
+      }
+      // Defining a data property avoids invoking the inherited __proto__ setter.
+      Object.defineProperty(value, key, { value: item, enumerable: true, writable: true, configurable: true });
     }
     return value;
   }
@@ -217,14 +238,19 @@ class CborReader {
   }
 }
 
-export function decodeCbor<T>(data: Uint8Array<ArrayBuffer>): T {
-  return new CborReader(data).read() as T;
+/** Rejects duplicate map keys. Object mode also rejects integer/text keys with the same property name. */
+export function decodeCbor<T>(data: Uint8Array<ArrayBuffer>, options: CborDecodeOptions = {}): T {
+  return new CborReader(data, options.mapType).read() as T;
 }
 
-export function decodeCborWithRemainder<T>(data: Uint8Array<ArrayBuffer>): {
+/** Uses the same map decoding rules as decodeCbor and leaves subsequent items undecoded. */
+export function decodeCborWithRemainder<T>(
+  data: Uint8Array<ArrayBuffer>,
+  options: CborDecodeOptions = {},
+): {
   value: T;
   remainder: Uint8Array<ArrayBuffer>;
 } {
-  const { value, remainder } = new CborReader(data).readWithRemainder();
+  const { value, remainder } = new CborReader(data, options.mapType).readWithRemainder();
   return { value: value as T, remainder };
 }
